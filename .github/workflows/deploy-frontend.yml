@@ -1,0 +1,47 @@
+name: Deploy Frontend → Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build Angular + Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    strategy:
+      matrix:
+        locale: [pt, en, es]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: cd frontend && npm install
+
+      - name: Build locale ${{ matrix.locale }}
+        run: cd frontend && npm run build:${{ matrix.locale }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy frontend (${{ matrix.locale }})
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up \
+            --service ${{ vars[format('RAILWAY_FRONTEND_{0}_SERVICE', upper(matrix.locale))] }} \
+            --detach

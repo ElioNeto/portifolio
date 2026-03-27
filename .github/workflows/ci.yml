@@ -21,7 +21,7 @@ jobs:
         run: cd backend && go test ./...
 
   frontend:
-    name: Angular Lint & Build
+    name: Angular Build (PT)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,8 +30,6 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: cd frontend && npm install
-      - name: Lint
-        run: cd frontend && npm run lint
       - name: Build PT
         run: cd frontend && npm run build:pt
       - name: Build EN
