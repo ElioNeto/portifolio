@@ -3,8 +3,8 @@ set -euo pipefail
 
 # ============================================================
 # Railway Infrastructure Provisioning
-# RAILWAY_API_TOKEN = Account/Team token (para GraphQL API)
-# RAILWAY_TOKEN     = Project token      (para railway up)
+# RAILWAY_API_TOKEN  = Account Token (GraphQL API)
+# RAILWAY_WORKSPACE_ID = Workspace ID (cmd+k > "copy workspace id")
 # ============================================================
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'
@@ -15,8 +15,8 @@ warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 fail() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 debug(){ echo -e "${YELLOW}[DEBUG]${NC} $*"; }
 
-# RAILWAY_API_TOKEN = Account token (usado para GraphQL)
-[ -z "${RAILWAY_API_TOKEN:-}" ] && fail "RAILWAY_API_TOKEN nao configurado. Gere em: https://railway.app/account/tokens"
+[ -z "${RAILWAY_API_TOKEN:-}"    ] && fail "RAILWAY_API_TOKEN nao configurado."
+[ -z "${RAILWAY_WORKSPACE_ID:-}" ] && fail "RAILWAY_WORKSPACE_ID nao configurado. Abra o Railway, pressione Cmd+K e busque 'copy workspace id'."
 
 PROJECT_NAME="${PROJECT_NAME:-portifolio}"
 REPO="${REPO:-ElioNeto/portifolio}"
@@ -27,7 +27,7 @@ SERVICES=("backend" "frontend-pt" "frontend-en" "frontend-es")
 TMP=$(mktemp -d)
 trap 'rm -rf $TMP' EXIT
 
-# ---- Helper: Railway GraphQL (usa RAILWAY_API_TOKEN) ----
+# ---- Helper: Railway GraphQL ----
 railway_gql() {
   local PAYLOAD_FILE="$1"
   debug "Payload: $(cat $PAYLOAD_FILE)"
@@ -40,7 +40,7 @@ railway_gql() {
   local ERRORS
   ERRORS=$(echo "$RESP" | jq -r 'if .errors then .errors | map(.message) | join(", ") else empty end' 2>/dev/null || echo "")
   if [ -n "$ERRORS" ]; then
-    fail "GraphQL error: $ERRORS | Payload: $(cat $PAYLOAD_FILE)"
+    fail "GraphQL error: $ERRORS\nPayload: $(cat $PAYLOAD_FILE)\nResponse: $RESP"
   fi
   echo "$RESP"
 }
@@ -61,14 +61,14 @@ set_gh_var() {
 }
 
 # ===========================================================
-# 0. Validar token com whoami
+# 0. Validar token (me so retorna id/name — NAO projects)
 # ===========================================================
 log "Validando RAILWAY_API_TOKEN..."
-jq -n '{"query": "{ me { id email name } }"}' > "$TMP/q.json"
+jq -n '{"query": "{ me { id name } }"}' > "$TMP/q.json"
 ME=$(railway_gql "$TMP/q.json")
-ME_EMAIL=$(echo "$ME" | jq -r '.data.me.email // empty')
-[ -z "$ME_EMAIL" ] && fail "Token invalido ou conta sem permissao. Resposta: $ME"
-ok "Autenticado como: $ME_EMAIL"
+ME_NAME=$(echo "$ME" | jq -r '.data.me.name // empty')
+[ -z "$ME_NAME" ] && fail "Token invalido. Resposta: $ME"
+ok "Autenticado como: $ME_NAME"
 
 # ===========================================================
 # 1. Garantir GitHub Environment
@@ -77,24 +77,26 @@ log "Garantindo environment '$ENVIRONMENT' no GitHub..."
 gh api --method PUT \
   -H "Accept: application/vnd.github+json" \
   "/repos/$REPO/environments/$ENVIRONMENT" \
-  --silent 2>/dev/null || warn "Environment ja existe ou sem permissao."
+  --silent 2>/dev/null || warn "Environment ja existe."
 ok "GitHub Environment '$ENVIRONMENT' OK."
 
 # ===========================================================
-# 2. Buscar ou criar projeto Railway
+# 2. Buscar ou criar projeto via workspace query
 # ===========================================================
-log "Buscando projeto '$PROJECT_NAME' no Railway..."
-jq -n '{"query": "{ me { projects { edges { node { id name } } } } }"}' > "$TMP/q.json"
-ME_RESP=$(railway_gql "$TMP/q.json")
-PROJECT_ID=$(echo "$ME_RESP" \
+log "Buscando projeto '$PROJECT_NAME' no workspace $RAILWAY_WORKSPACE_ID..."
+jq -n --arg wid "$RAILWAY_WORKSPACE_ID" \
+  '{"query": "query($wid: String!) { workspace(workspaceId: $wid) { projects { edges { node { id name } } } } }",
+    "variables": {"wid": $wid}}' > "$TMP/q.json"
+WS_RESP=$(railway_gql "$TMP/q.json")
+PROJECT_ID=$(echo "$WS_RESP" \
   | jq -r --arg NAME "$PROJECT_NAME" \
-    '.data.me.projects.edges[] | select(.node.name == $NAME) | .node.id' 2>/dev/null || echo "")
+    '.data.workspace.projects.edges[] | select(.node.name == $NAME) | .node.id' 2>/dev/null || echo "")
 
 if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
   log "Criando projeto '$PROJECT_NAME'..."
-  jq -n --arg name "$PROJECT_NAME" \
-    '{"query": "mutation($name: String!) { projectCreate(input: { name: $name }) { id name } }",
-      "variables": {"name": $name}}' > "$TMP/q.json"
+  jq -n --arg name "$PROJECT_NAME" --arg wid "$RAILWAY_WORKSPACE_ID" \
+    '{"query": "mutation($name: String!, $wid: String!) { projectCreate(input: { name: $name, workspaceId: $wid }) { id name } }",
+      "variables": {"name": $name, "wid": $wid}}' > "$TMP/q.json"
   CREATE_RESP=$(railway_gql "$TMP/q.json")
   PROJECT_ID=$(echo "$CREATE_RESP" | jq -r '.data.projectCreate.id // empty')
   [ -z "$PROJECT_ID" ] && fail "Falha ao criar projeto. Resposta: $CREATE_RESP"
@@ -104,7 +106,7 @@ else
 fi
 
 # ===========================================================
-# 3. Obter Environment ID
+# 3. Obter Environment ID do projeto
 # ===========================================================
 log "Buscando environment do projeto..."
 jq -n --arg pid "$PROJECT_ID" \
@@ -149,7 +151,7 @@ for SVC in "${SERVICES[@]}"; do
 done
 
 # ===========================================================
-# 5. Setar variaveis de ambiente no backend
+# 5. Setar variaveis no backend
 # ===========================================================
 log "Configurando variaveis do backend..."
 
@@ -157,7 +159,7 @@ set_railway_var() {
   local SVC_ID="$1" KEY="$2" VALUE="$3"
   jq -n \
     --arg pid "$PROJECT_ID" --arg eid "$ENV_ID" \
-    --arg sid "$SVC_ID"     --arg name "$KEY"   --arg value "$VALUE" \
+    --arg sid "$SVC_ID"     --arg name "$KEY" --arg value "$VALUE" \
     '{"query": "mutation($pid:String!,$eid:String!,$sid:String!,$name:String!,$value:String!) { variableUpsert(input: { projectId:$pid, environmentId:$eid, serviceId:$sid, name:$name, value:$value }) }",
      "variables": {"pid":$pid,"eid":$eid,"sid":$sid,"name":$name,"value":$value}}' > "$TMP/q.json"
   railway_gql "$TMP/q.json" > /dev/null
@@ -171,6 +173,7 @@ set_railway_var "${SERVICE_IDS[backend]}" "ALLOWED_ORIGINS" "https://portifolio-
 # 6. Gravar IDs como GitHub Variables
 # ===========================================================
 log "Gravando variaveis no GitHub Environment '$ENVIRONMENT'..."
+set_gh_var "RAILWAY_WORKSPACE_ID"        "$RAILWAY_WORKSPACE_ID"
 set_gh_var "RAILWAY_PROJECT_ID"          "$PROJECT_ID"
 set_gh_var "RAILWAY_ENV_ID"              "$ENV_ID"
 set_gh_var "RAILWAY_BACKEND_SERVICE"     "${SERVICE_IDS[backend]}"
@@ -191,8 +194,9 @@ echo ""
 echo "=========================================="
 ok " INFRA PROVISIONADA COM SUCESSO!"
 echo "=========================================="
+printf "  %-25s %s\n" "Autenticado:"  "$ME_NAME"
+printf "  %-25s %s\n" "Workspace:"   "$RAILWAY_WORKSPACE_ID"
 printf "  %-25s %s\n" "Projeto:"     "$PROJECT_NAME ($PROJECT_ID)"
-printf "  %-25s %s\n" "Auth como:"   "$ME_EMAIL"
 printf "  %-25s %s\n" "Environment:" "$ENV_NAME ($ENV_ID)"
 echo ""
 for SVC in "${SERVICES[@]}"; do
@@ -200,9 +204,7 @@ for SVC in "${SERVICES[@]}"; do
 done
 echo ""
 warn "Proximos passos:"
-echo "  1. Crie um Project Token no Railway para cada servico:"
-echo "     https://railway.app/project/$PROJECT_ID/settings/tokens"
-echo "  2. Adicione como Secret no GitHub: RAILWAY_TOKEN"
-echo "  3. Rode: Deploy Backend -> Railway"
-echo "  4. Rode: Deploy Frontend -> Railway"
+echo "  1. Rode: Deploy Backend -> Railway"
+echo "  2. Rode: Deploy Frontend -> Railway"
+echo "  3. Atualize BACKEND_URL com a URL real gerada pelo Railway."
 echo ""

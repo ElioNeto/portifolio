@@ -1,5 +1,12 @@
 name: ⚡ Provision Railway Infra
 
+# Rode este workflow UMA VEZ para criar toda a infra no Railway.
+#
+# Prerequisitos:
+#   1. RAILWAY_API_TOKEN  -> https://railway.app/account/tokens (Account Token)
+#   2. RAILWAY_WORKSPACE_ID -> No Railway: pressione Cmd+K, busque "copy workspace id"
+#      Adicione ambos como Secrets do repositorio (nao do environment)
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,8 +14,12 @@ on:
         description: 'Nome do projeto no Railway'
         required: true
         default: 'portifolio'
+      workspace_id:
+        description: 'Workspace ID do Railway (Cmd+K > copy workspace id)'
+        required: true
+        default: ''
       backend_url_override:
-        description: 'URL publica do backend (opcional)'
+        description: 'URL publica do backend (opcional, preencha apos o primeiro deploy)'
         required: false
         default: ''
 
@@ -21,56 +32,39 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install deps (jq + gh)
-        run: |
-          sudo apt-get install -y jq
-          type -p gh || (sudo apt update && sudo apt install gh -y)
+        run: sudo apt-get install -y jq
 
-      - name: Validate RAILWAY_API_TOKEN
+      - name: Validate inputs
         run: |
           if [ -z "${{ secrets.RAILWAY_API_TOKEN }}" ]; then
-            echo "::error::RAILWAY_API_TOKEN nao configurado!"
-            echo "::error::Acesse https://railway.app/account/tokens e crie um Account Token"
+            echo "::error::RAILWAY_API_TOKEN nao configurado como Secret!"
+            echo "::error::Acesse: https://github.com/ElioNeto/portifolio/settings/secrets/actions"
             exit 1
           fi
-          echo "✅ RAILWAY_API_TOKEN presente (${#RAILWAY_API_TOKEN} chars)."
-        env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-
-      - name: "[DIAG] Railway whoami (raw curl)"
-        env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-        run: |
-          echo "=== Testando autenticacao Railway API ==="
-          RESP=$(curl -s -X POST https://backboard.railway.app/graphql/v2 \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
-            -d '{"query": "{ me { id email name } }"}')
-          echo "Raw response: $RESP"
-          # Extrai email se der certo
-          EMAIL=$(echo "$RESP" | jq -r '.data.me.email // empty' 2>/dev/null || echo "")
-          if [ -n "$EMAIL" ]; then
-            echo "✅ Autenticado como: $EMAIL"
-          else
-            ERRMSG=$(echo "$RESP" | jq -r '.errors[0].message // .message // "resposta inesperada"' 2>/dev/null || echo "erro desconhecido")
-            echo "::error::Falha na autenticacao Railway: $ERRMSG"
-            echo "::error::Resposta completa: $RESP"
+          if [ -z "${{ github.event.inputs.workspace_id }}" ]; then
+            echo "::error::workspace_id obrigatorio!"
+            echo "::error::No Railway: pressione Cmd+K e busque 'copy workspace id'"
             exit 1
           fi
+          echo "✅ Inputs OK."
 
       - name: Provision Railway infra
         env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROJECT_NAME: ${{ github.event.inputs.project_name }}
+          RAILWAY_API_TOKEN:    ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_WORKSPACE_ID: ${{ github.event.inputs.workspace_id }}
+          GH_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_NAME:         ${{ github.event.inputs.project_name }}
           BACKEND_URL_OVERRIDE: ${{ github.event.inputs.backend_url_override }}
-          REPO: ${{ github.repository }}
+          REPO:                 ${{ github.repository }}
         run: bash scripts/provision-railway.sh
 
       - name: Summary
         if: success()
         run: |
           echo "## ⚡ Railway Infra Provisionada" >> $GITHUB_STEP_SUMMARY
-          echo "Proximos passos:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Crie um Project Token: https://railway.app/account/tokens" >> $GITHUB_STEP_SUMMARY
-          echo "2. Adicione como Secret \`RAILWAY_TOKEN\` no GitHub" >> $GITHUB_STEP_SUMMARY
-          echo "3. Rode: Deploy Backend e Deploy Frontend" >> $GITHUB_STEP_SUMMARY
+          echo "Os IDs foram gravados automaticamente no GitHub Environment 'production'." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Proximos passos:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Rode o workflow: **Deploy Backend -> Railway**" >> $GITHUB_STEP_SUMMARY
+          echo "2. Rode o workflow: **Deploy Frontend -> Railway**" >> $GITHUB_STEP_SUMMARY
+          echo "3. Atualize a variavel \`BACKEND_URL\` com a URL real gerada pelo Railway" >> $GITHUB_STEP_SUMMARY
