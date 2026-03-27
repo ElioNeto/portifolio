@@ -41,10 +41,10 @@ export class AboutComponent implements OnInit {
   profile = signal<Profile | null>(null);
   bio = signal<string>('');
 
-  stats = [
-    { value: '8+', label: $localize`:@@about.stat.years:Years of Experience` },
+  readonly stats = [
+    { value: '8+',  label: $localize`:@@about.stat.years:Years of Experience` },
     { value: '15+', label: $localize`:@@about.stat.projects:Projects Delivered` },
-    { value: '3', label: $localize`:@@about.stat.langs:Languages` },
+    { value: '3',   label: $localize`:@@about.stat.langs:Languages` },
   ];
 
   ngOnInit(): void {

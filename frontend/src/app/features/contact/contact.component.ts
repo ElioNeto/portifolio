@@ -21,7 +21,8 @@ interface ContactForm {
             <input
               id="name" name="name" type="text"
               [(ngModel)]="form.name" required
-              [placeholder]="namePlaceholder"
+              i18n-placeholder="@@contact.name.placeholder"
+              placeholder="Your name"
             />
           </div>
           <div class="form-group">
@@ -29,7 +30,8 @@ interface ContactForm {
             <input
               id="email" name="email" type="email"
               [(ngModel)]="form.email" required
-              [placeholder]="emailPlaceholder"
+              i18n-placeholder="@@contact.email.placeholder"
+              placeholder="your@email.com"
             />
           </div>
           <div class="form-group">
@@ -37,7 +39,8 @@ interface ContactForm {
             <textarea
               id="message" name="message"
               [(ngModel)]="form.message" required rows="5"
-              [placeholder]="messagePlaceholder"
+              i18n-placeholder="@@contact.message.placeholder"
+              placeholder="Tell me about your project..."
             ></textarea>
           </div>
           <button type="submit" [disabled]="f.invalid" i18n="@@contact.send">Send Message</button>
@@ -86,12 +89,7 @@ export class ContactComponent {
   sent = signal(false);
   form: ContactForm = { name: '', email: '', message: '' };
 
-  namePlaceholder = $localize`:@@contact.name.placeholder:Your name`;
-  emailPlaceholder = $localize`:@@contact.email.placeholder:your@email.com`;
-  messagePlaceholder = $localize`:@@contact.message.placeholder:Tell me about your project...`;
-
   onSubmit(): void {
-    // TODO: connect to backend /api/contact
     console.log('Form submitted', this.form);
     this.sent.set(true);
   }

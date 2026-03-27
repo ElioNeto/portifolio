@@ -7,9 +7,9 @@ import { Component } from '@angular/core';
     <footer>
       <div class="container">
         <p>
-          &copy; {{ year }} Elio Neto &mdash;
+          &copy; {{ year }}
           <a href="https://github.com/ElioNeto" target="_blank" rel="noopener">
-            ${ $localize`:@@footer.builtWith:Built with Angular + Go` }
+            <ng-container i18n="@@footer.builtWith">Elio Neto &mdash; Built with Angular + Go</ng-container>
           </a>
         </p>
       </div>
@@ -23,6 +23,8 @@ import { Component } from '@angular/core';
       color: var(--color-text-muted);
       font-size: 0.875rem;
     }
+    a { color: var(--color-text-muted); }
+    a:hover { color: var(--color-primary); }
   `]
 })
 export class FooterComponent {

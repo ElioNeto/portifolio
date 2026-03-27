@@ -1,25 +1,20 @@
 import { Component, HostListener, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
 
 interface NavLink {
   anchor: string;
-  labelKey: string;
   label: string;
 }
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
   template: `
     <nav [class.scrolled]="scrolled()">
       <div class="container nav-inner">
         <span class="logo">EN</span>
         <ul class="nav-links">
           @for (link of navLinks; track link.anchor) {
-            <li>
-              <a [href]="link.anchor">{{ link.label }}</a>
-            </li>
+            <li><a [href]="link.anchor">{{ link.label }}</a></li>
           }
         </ul>
       </div>
@@ -48,10 +43,10 @@ export class NavbarComponent {
   scrolled = signal(false);
 
   navLinks: NavLink[] = [
-    { anchor: '#about',    labelKey: 'nav.about',    label: $localize`:@@nav.about:About` },
-    { anchor: '#projects', labelKey: 'nav.projects', label: $localize`:@@nav.projects:Projects` },
-    { anchor: '#skills',   labelKey: 'nav.skills',   label: $localize`:@@nav.skills:Skills` },
-    { anchor: '#contact',  labelKey: 'nav.contact',  label: $localize`:@@nav.contact:Contact` },
+    { anchor: '#about',    label: $localize`:@@nav.about:About` },
+    { anchor: '#projects', label: $localize`:@@nav.projects:Projects` },
+    { anchor: '#skills',   label: $localize`:@@nav.skills:Skills` },
+    { anchor: '#contact',  label: $localize`:@@nav.contact:Contact` },
   ];
 
   @HostListener('window:scroll')
