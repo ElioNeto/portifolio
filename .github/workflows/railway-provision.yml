@@ -1,13 +1,5 @@
 name: ⚡ Provision Railway Infra
 
-# Rode este workflow UMA VEZ para criar toda a infra no Railway.
-# Requer RAILWAY_API_TOKEN (Account Token) — NAO o RAILWAY_TOKEN (Project Token)
-#
-# Como obter:
-#   1. Acesse https://railway.app/account/tokens
-#   2. Clique em "Create Token" (Account Token)
-#   3. Adicione como Secret: RAILWAY_API_TOKEN
-
 on:
   workflow_dispatch:
     inputs:
@@ -28,25 +20,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install deps (jq + gh)
+        run: |
+          sudo apt-get install -y jq
+          type -p gh || (sudo apt update && sudo apt install gh -y)
+
       - name: Validate RAILWAY_API_TOKEN
         run: |
           if [ -z "${{ secrets.RAILWAY_API_TOKEN }}" ]; then
             echo "::error::RAILWAY_API_TOKEN nao configurado!"
-            echo "::error::1. Acesse https://railway.app/account/tokens"
-            echo "::error::2. Crie um Account Token (nao Project Token)"
-            echo "::error::3. Adicione como Secret: RAILWAY_API_TOKEN"
+            echo "::error::Acesse https://railway.app/account/tokens e crie um Account Token"
             exit 1
           fi
-          echo "✅ RAILWAY_API_TOKEN presente."
+          echo "✅ RAILWAY_API_TOKEN presente (${#RAILWAY_API_TOKEN} chars)."
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
 
-      - name: Install Railway CLI + jq
+      - name: "[DIAG] Railway whoami (raw curl)"
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: |
-          npm install -g @railway/cli
-          sudo apt-get install -y jq
-
-      - name: Install GitHub CLI
-        run: |
-          type -p gh || (sudo apt update && sudo apt install gh -y)
+          echo "=== Testando autenticacao Railway API ==="
+          RESP=$(curl -s -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
+            -d '{"query": "{ me { id email name } }"}')
+          echo "Raw response: $RESP"
+          # Extrai email se der certo
+          EMAIL=$(echo "$RESP" | jq -r '.data.me.email // empty' 2>/dev/null || echo "")
+          if [ -n "$EMAIL" ]; then
+            echo "✅ Autenticado como: $EMAIL"
+          else
+            ERRMSG=$(echo "$RESP" | jq -r '.errors[0].message // .message // "resposta inesperada"' 2>/dev/null || echo "erro desconhecido")
+            echo "::error::Falha na autenticacao Railway: $ERRMSG"
+            echo "::error::Resposta completa: $RESP"
+            exit 1
+          fi
 
       - name: Provision Railway infra
         env:
@@ -58,9 +67,10 @@ jobs:
         run: bash scripts/provision-railway.sh
 
       - name: Summary
+        if: success()
         run: |
           echo "## ⚡ Railway Infra Provisionada" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "Proximos passos:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Crie um Project Token em railway.app e adicione como \`RAILWAY_TOKEN\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. Rode **Deploy Backend** e **Deploy Frontend**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Crie um Project Token: https://railway.app/account/tokens" >> $GITHUB_STEP_SUMMARY
+          echo "2. Adicione como Secret \`RAILWAY_TOKEN\` no GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "3. Rode: Deploy Backend e Deploy Frontend" >> $GITHUB_STEP_SUMMARY
