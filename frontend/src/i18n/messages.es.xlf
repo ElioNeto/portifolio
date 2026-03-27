@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="es" datatype="plaintext" original="ng2.template">
+    <body>
+      <trans-unit id="nav.about"><source>About</source><target>Sobre mí</target></trans-unit>
+      <trans-unit id="nav.projects"><source>Projects</source><target>Proyectos</target></trans-unit>
+      <trans-unit id="nav.skills"><source>Skills</source><target>Habilidades</target></trans-unit>
+      <trans-unit id="nav.contact"><source>Contact</source><target>Contacto</target></trans-unit>
+      <trans-unit id="hero.badge"><source>Available for projects</source><target>Disponible para proyectos</target></trans-unit>
+      <trans-unit id="hero.cta.projects"><source>View Projects</source><target>Ver Proyectos</target></trans-unit>
+      <trans-unit id="hero.cta.contact"><source>Get in Touch</source><target>Contáctame</target></trans-unit>
+      <trans-unit id="about.title"><source>About Me</source><target>Sobre Mí</target></trans-unit>
+      <trans-unit id="about.stat.years"><source>Years of Experience</source><target>Años de Experiencia</target></trans-unit>
+      <trans-unit id="about.stat.projects"><source>Projects Delivered</source><target>Proyectos Entregados</target></trans-unit>
+      <trans-unit id="about.stat.langs"><source>Languages</source><target>Idiomas</target></trans-unit>
+      <trans-unit id="projects.title"><source>Projects</source><target>Proyectos</target></trans-unit>
+      <trans-unit id="projects.featured"><source>Featured</source><target>Destacado</target></trans-unit>
+      <trans-unit id="projects.github"><source>GitHub →</source><target>GitHub →</target></trans-unit>
+      <trans-unit id="projects.live"><source>Live →</source><target>Ver sitio →</target></trans-unit>
+      <trans-unit id="projects.empty"><source>No projects found.</source><target>No se encontraron proyectos.</target></trans-unit>
+      <trans-unit id="skills.title"><source>Skills</source><target>Habilidades</target></trans-unit>
+      <trans-unit id="contact.title"><source>Get in Touch</source><target>Contáctame</target></trans-unit>
+      <trans-unit id="contact.name"><source>Name</source><target>Nombre</target></trans-unit>
+      <trans-unit id="contact.email"><source>Email</source><target>Correo</target></trans-unit>
+      <trans-unit id="contact.message"><source>Message</source><target>Mensaje</target></trans-unit>
+      <trans-unit id="contact.send"><source>Send Message</source><target>Enviar Mensaje</target></trans-unit>
+      <trans-unit id="contact.success"><source>Thanks! I'll get back to you soon. 🚀</source><target>¡Gracias! Te responderé pronto. 🚀</target></trans-unit>
+      <trans-unit id="contact.name.placeholder"><source>Your name</source><target>Tu nombre</target></trans-unit>
+      <trans-unit id="contact.email.placeholder"><source>your@email.com</source><target>tu@correo.com</target></trans-unit>
+      <trans-unit id="contact.message.placeholder"><source>Tell me about your project...</source><target>Cuéntame sobre tu proyecto...</target></trans-unit>
+      <trans-unit id="footer.builtWith"><source>Built with Angular + Go</source><target>Hecho con Angular + Go</target></trans-unit>
+    </body>
+  </file>
+</xliff>

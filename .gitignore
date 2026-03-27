@@ -1,0 +1,16 @@
+# Node / Angular
+node_modules/
+dist/
+.angular/
+*.env
+.env
+
+# Go
+backend/bin/
+*.exe
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.DS_Store
