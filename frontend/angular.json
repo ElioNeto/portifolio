@@ -5,6 +5,19 @@
   "projects": {
     "portifolio": {
       "projectType": "application",
+      "i18n": {
+        "sourceLocale": "pt",
+        "locales": {
+          "en": {
+            "translation": "src/i18n/messages.en.xlf",
+            "baseHref": "/en/"
+          },
+          "es": {
+            "translation": "src/i18n/messages.es.xlf",
+            "baseHref": "/es/"
+          }
+        }
+      },
       "schematics": {
         "@schematics/angular:component": {
           "standalone": true,
