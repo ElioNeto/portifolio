@@ -6,6 +6,12 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+    inputs:
+      locale:
+        description: 'Locale to deploy (pt | en | es | all)'
+        required: false
+        default: 'all'
 
 concurrency:
   group: deploy-frontend
@@ -13,7 +19,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    name: Build Angular + Deploy
+    name: Deploy frontend-${{ matrix.locale }}
     runs-on: ubuntu-latest
     environment: production
 
@@ -24,6 +30,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "::error::RAILWAY_TOKEN não configurado."
+            echo "::error::Siga docs/railway-setup.md"
+            exit 1
+          fi
+          echo "✅ RAILWAY_TOKEN configurado."
 
       - uses: actions/setup-node@v4
         with:
@@ -38,10 +53,27 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy frontend (${{ matrix.locale }})
+      - name: Resolve service name (${{ matrix.locale }})
+        id: service
+        env:
+          LOCALE: ${{ matrix.locale }}
+          VAR_PT:  ${{ vars.RAILWAY_FRONTEND_PT_SERVICE }}
+          VAR_EN:  ${{ vars.RAILWAY_FRONTEND_EN_SERVICE }}
+          VAR_ES:  ${{ vars.RAILWAY_FRONTEND_ES_SERVICE }}
+        run: |
+          case "$LOCALE" in
+            pt) NAME="${VAR_PT:-frontend-pt}" ;;
+            en) NAME="${VAR_EN:-frontend-en}" ;;
+            es) NAME="${VAR_ES:-frontend-es}" ;;
+          esac
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "📦 Service: $NAME"
+
+      - name: Deploy frontend-${{ matrix.locale }} to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        working-directory: frontend
         run: |
           railway up \
-            --service ${{ vars[format('RAILWAY_FRONTEND_{0}_SERVICE', upper(matrix.locale))] }} \
+            --service "${{ steps.service.outputs.name }}" \
             --detach
