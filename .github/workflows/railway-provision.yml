@@ -1,8 +1,12 @@
 name: ⚡ Provision Railway Infra
 
 # Rode este workflow UMA VEZ para criar toda a infra no Railway.
-# Após rodar, os IDs dos serviços serão gravados como variáveis
-# no GitHub Environment 'production' automaticamente.
+# Requer RAILWAY_API_TOKEN (Account Token) — NAO o RAILWAY_TOKEN (Project Token)
+#
+# Como obter:
+#   1. Acesse https://railway.app/account/tokens
+#   2. Clique em "Create Token" (Account Token)
+#   3. Adicione como Secret: RAILWAY_API_TOKEN
 
 on:
   workflow_dispatch:
@@ -12,7 +16,7 @@ on:
         required: true
         default: 'portifolio'
       backend_url_override:
-        description: 'URL pública do backend (deixe vazio para usar a gerada pelo Railway)'
+        description: 'URL publica do backend (opcional)'
         required: false
         default: ''
 
@@ -24,38 +28,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate RAILWAY_TOKEN
+      - name: Validate RAILWAY_API_TOKEN
         run: |
-          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
-            echo "::error::RAILWAY_TOKEN não configurado!"
+          if [ -z "${{ secrets.RAILWAY_API_TOKEN }}" ]; then
+            echo "::error::RAILWAY_API_TOKEN nao configurado!"
             echo "::error::1. Acesse https://railway.app/account/tokens"
-            echo "::error::2. Crie um token e adicione como Secret neste repo"
+            echo "::error::2. Crie um Account Token (nao Project Token)"
+            echo "::error::3. Adicione como Secret: RAILWAY_API_TOKEN"
             exit 1
           fi
-          echo "✅ RAILWAY_TOKEN presente."
+          echo "✅ RAILWAY_API_TOKEN presente."
 
       - name: Install Railway CLI + jq
         run: |
           npm install -g @railway/cli
           sudo apt-get install -y jq
-          railway --version
 
       - name: Install GitHub CLI
         run: |
-          type -p gh || (
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-              | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
-              https://cli.github.com/packages stable main" \
-              | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt update && sudo apt install gh -y
-          )
-          echo "✅ GitHub CLI pronto."
+          type -p gh || (sudo apt update && sudo apt install gh -y)
 
       - name: Provision Railway infra
-        id: provision
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROJECT_NAME: ${{ github.event.inputs.project_name }}
           BACKEND_URL_OVERRIDE: ${{ github.event.inputs.backend_url_override }}
@@ -66,11 +61,6 @@ jobs:
         run: |
           echo "## ⚡ Railway Infra Provisionada" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Serviço | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| backend | ✅ criado |" >> $GITHUB_STEP_SUMMARY
-          echo "| frontend-pt | ✅ criado |" >> $GITHUB_STEP_SUMMARY
-          echo "| frontend-en | ✅ criado |" >> $GITHUB_STEP_SUMMARY
-          echo "| frontend-es | ✅ criado |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ Próximo passo: rode o workflow **Deploy Backend** e **Deploy Frontend**" >> $GITHUB_STEP_SUMMARY
+          echo "Proximos passos:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Crie um Project Token em railway.app e adicione como \`RAILWAY_TOKEN\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Rode **Deploy Backend** e **Deploy Frontend**" >> $GITHUB_STEP_SUMMARY
