@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       locale:
-        description: 'Locale to deploy (pt | en | es | all)'
+        description: 'Locale para deploy (pt | en | es | all)'
         required: false
         default: 'all'
 
@@ -35,10 +35,10 @@ jobs:
         run: |
           if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
             echo "::error::RAILWAY_TOKEN não configurado."
-            echo "::error::Siga docs/railway-setup.md"
+            echo "::error::Rode primeiro o workflow: Provision Railway Infra"
             exit 1
           fi
-          echo "✅ RAILWAY_TOKEN configurado."
+          echo "✅ RAILWAY_TOKEN OK."
 
       - uses: actions/setup-node@v4
         with:
@@ -57,9 +57,9 @@ jobs:
         id: service
         env:
           LOCALE: ${{ matrix.locale }}
-          VAR_PT:  ${{ vars.RAILWAY_FRONTEND_PT_SERVICE }}
-          VAR_EN:  ${{ vars.RAILWAY_FRONTEND_EN_SERVICE }}
-          VAR_ES:  ${{ vars.RAILWAY_FRONTEND_ES_SERVICE }}
+          VAR_PT: ${{ vars.RAILWAY_FRONTEND_PT_SERVICE }}
+          VAR_EN: ${{ vars.RAILWAY_FRONTEND_EN_SERVICE }}
+          VAR_ES: ${{ vars.RAILWAY_FRONTEND_ES_SERVICE }}
         run: |
           case "$LOCALE" in
             pt) NAME="${VAR_PT:-frontend-pt}" ;;

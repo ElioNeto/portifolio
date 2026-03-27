@@ -25,34 +25,28 @@ jobs:
       - name: Validate secrets
         run: |
           if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
-            echo "::error::RAILWAY_TOKEN não configurado. Acesse:"
-            echo "::error::https://github.com/ElioNeto/portifolio/settings/environments"
-            echo "::error::Siga as instruções em docs/railway-setup.md"
+            echo "::error::RAILWAY_TOKEN não configurado."
+            echo "::error::Rode primeiro o workflow: Provision Railway Infra"
             exit 1
           fi
-          echo "✅ RAILWAY_TOKEN configurado."
+          if [ -z "${{ vars.RAILWAY_BACKEND_SERVICE }}" ]; then
+            echo "::error::RAILWAY_BACKEND_SERVICE não definida."
+            echo "::error::Rode primeiro o workflow: Provision Railway Infra"
+            exit 1
+          fi
+          echo "✅ Secrets e vars OK."
 
       - name: Install Railway CLI
         run: npm install -g @railway/cli
-
-      - name: Resolve service name
-        id: service
-        run: |
-          NAME="${{ vars.RAILWAY_BACKEND_SERVICE }}"
-          if [ -z "$NAME" ]; then
-            NAME="backend"
-            echo "::warning::RAILWAY_BACKEND_SERVICE não definida. Usando nome padrão: backend"
-          fi
-          echo "name=$NAME" >> $GITHUB_OUTPUT
 
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         working-directory: backend
         run: |
-          echo "🚀 Deploying service: ${{ steps.service.outputs.name }}"
+          echo "🚀 Deploying service: ${{ vars.RAILWAY_BACKEND_SERVICE }}"
           railway up \
-            --service "${{ steps.service.outputs.name }}" \
+            --service "${{ vars.RAILWAY_BACKEND_SERVICE }}" \
             --detach
 
       - name: Health check
