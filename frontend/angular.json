@@ -44,6 +44,7 @@
           "configurations": {
             "pt-production": {
               "localize": ["pt"],
+              "baseHref": "/",
               "optimization": true,
               "outputHashing": "all",
               "sourceMap": false,
