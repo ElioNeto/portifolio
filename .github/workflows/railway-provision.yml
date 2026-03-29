@@ -1,69 +1,59 @@
 name: ⚡ Provision Railway Infra
 
-# Rode este workflow UMA VEZ para criar toda a infra no Railway.
+# Rode este workflow UMA VEZ para criar os servicos no Railway.
 #
-# Prerequisitos:
-#   1. RAILWAY_API_TOKEN  -> https://railway.app/account/tokens (Account Token)
-#   2. RAILWAY_WORKSPACE_ID -> No Railway: pressione Cmd+K, busque "copy workspace id"
-#      Adicione ambos como Secrets do repositorio (nao do environment)
+# Pre-requisitos:
+#   1. Crie o projeto manualmente no Railway Dashboard
+#   2. Copie o Project ID: Railway -> Projeto -> Settings -> General -> Project ID
+#   3. Gere um Account Token: https://railway.app/account/tokens
+#   4. Adicione RAILWAY_TOKEN como Secret do repositorio GitHub
 
 on:
   workflow_dispatch:
     inputs:
-      project_name:
-        description: 'Nome do projeto no Railway'
-        required: true
-        default: 'portifolio'
-      workspace_id:
-        description: 'Workspace ID do Railway (Cmd+K > copy workspace id)'
+      project_id:
+        description: 'Railway Project ID (Settings -> General -> Project ID)'
         required: true
         default: ''
       backend_url_override:
-        description: 'URL publica do backend (opcional, preencha apos o primeiro deploy)'
+        description: 'URL publica do backend (opcional — preencha apos o 1o deploy)'
         required: false
         default: ''
       database_url_override:
-        description: 'DATABASE_URL manual (opcional, so use se nao quiser Add Reference no dashboard)'
+        description: 'DATABASE_URL manual (opcional — alternativa ao Add Reference)'
         required: false
         default: ''
 
 jobs:
   provision:
-    name: Create Railway Project & Services
+    name: Create Railway Services & Variables
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps (jq)
-        run: sudo apt-get install -y jq
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
       - name: Validate inputs
         run: |
-          if [ -z "${{ secrets.RAILWAY_API_TOKEN }}" ]; then
-            echo "::error::RAILWAY_API_TOKEN nao configurado como Secret!"
+          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "::error::RAILWAY_TOKEN nao configurado como Secret!"
             echo "::error::Acesse: https://github.com/ElioNeto/portifolio/settings/secrets/actions"
             exit 1
           fi
-          if [ -z "${{ github.event.inputs.workspace_id }}" ]; then
-            echo "::error::workspace_id obrigatorio!"
-            echo "::error::No Railway: pressione Cmd+K e busque 'copy workspace id'"
+          if [ -z "${{ github.event.inputs.project_id }}" ]; then
+            echo "::error::project_id obrigatorio!"
+            echo "::error::Copie em: Railway Dashboard -> Projeto -> Settings -> General -> Project ID"
             exit 1
           fi
           echo "✅ Inputs OK."
 
-      - name: Provision Railway infra
+      - name: Provision Railway services
         env:
-          RAILWAY_API_TOKEN:      ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_WORKSPACE_ID:   ${{ github.event.inputs.workspace_id }}
-          GH_TOKEN:               ${{ secrets.GITHUB_TOKEN }}
-          PROJECT_NAME:           ${{ github.event.inputs.project_name }}
-          BACKEND_URL_OVERRIDE:   ${{ github.event.inputs.backend_url_override }}
-          DATABASE_URL_OVERRIDE:  ${{ github.event.inputs.database_url_override }}
-          REPO:                   ${{ github.repository }}
+          RAILWAY_TOKEN:         ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID:    ${{ github.event.inputs.project_id }}
+          GH_TOKEN:              ${{ secrets.GITHUB_TOKEN }}
+          BACKEND_URL_OVERRIDE:  ${{ github.event.inputs.backend_url_override }}
+          DATABASE_URL_OVERRIDE: ${{ github.event.inputs.database_url_override }}
+          REPO:                  ${{ github.repository }}
         run: bash scripts/provision-railway.sh
 
       - name: Summary
@@ -74,10 +64,9 @@ jobs:
           echo "Os IDs foram gravados automaticamente no GitHub Environment 'production'." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Proximos passos" >> $GITHUB_STEP_SUMMARY
-          echo "1. Se o PostgreSQL nao foi criado automaticamente:" >> $GITHUB_STEP_SUMMARY
-          echo "   - Railway Dashboard -> **+ New Service** -> **Database** -> **PostgreSQL**" >> $GITHUB_STEP_SUMMARY
-          echo "2. Linke o Postgres ao backend:" >> $GITHUB_STEP_SUMMARY
-          echo "   - backend service -> **Variables** -> **Add Reference** -> \`DATABASE_URL\`" >> $GITHUB_STEP_SUMMARY
-          echo "3. Rode: **Deploy Backend -> Railway**" >> $GITHUB_STEP_SUMMARY
-          echo "4. Rode: **Deploy Frontend -> Railway**" >> $GITHUB_STEP_SUMMARY
-          echo "5. Atualize a variavel \`BACKEND_URL\` com a URL real do backend" >> $GITHUB_STEP_SUMMARY
+          echo "1. Adicione PostgreSQL: Railway Dashboard -> **+ New Service** -> **Database** -> **PostgreSQL**" >> $GITHUB_STEP_SUMMARY
+          echo "2. Linke ao backend: **backend** -> **Variables** -> **Add Reference** -> \`DATABASE_URL\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Configure root directory de cada servico no Railway Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "4. Rode: **Deploy Backend -> Railway**" >> $GITHUB_STEP_SUMMARY
+          echo "5. Rode: **Deploy Frontend -> Railway**" >> $GITHUB_STEP_SUMMARY
+          echo "6. Atualize a variavel \`BACKEND_URL\` com a URL real do backend" >> $GITHUB_STEP_SUMMARY
