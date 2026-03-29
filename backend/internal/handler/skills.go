@@ -8,7 +8,7 @@ import (
 )
 
 func SkillsHandler(w http.ResponseWriter, r *http.Request) {
-	skills, err := repository.GetSkillsFromDB()
+	skills, err := repository.GetSkills()
 	if err != nil {
 		http.Error(w, "erro ao buscar skills", http.StatusInternalServerError)
 		return
