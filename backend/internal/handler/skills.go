@@ -8,7 +8,11 @@ import (
 )
 
 func SkillsHandler(w http.ResponseWriter, r *http.Request) {
-	skills := repository.GetSkills()
+	skills, err := repository.GetSkillsFromDB()
+	if err != nil {
+		http.Error(w, "erro ao buscar skills", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(skills)
 }

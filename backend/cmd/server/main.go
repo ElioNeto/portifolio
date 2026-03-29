@@ -5,10 +5,24 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ElioNeto/portifolio/backend/internal/database"
 	"github.com/ElioNeto/portifolio/backend/internal/handler"
 )
 
 func main() {
+	if err := database.Connect(); err != nil {
+		log.Fatalf("Falha na conexão com banco: %v", err)
+	}
+	defer database.Close()
+
+	if err := database.Migrate(); err != nil {
+		log.Fatalf("Falha nas migrations: %v", err)
+	}
+
+	if err := database.Seed(); err != nil {
+		log.Fatalf("Falha no seed: %v", err)
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

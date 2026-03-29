@@ -8,7 +8,11 @@ import (
 )
 
 func ProjectsHandler(w http.ResponseWriter, r *http.Request) {
-	projects := repository.GetProjects()
+	projects, err := repository.GetProjectsFromDB()
+	if err != nil {
+		http.Error(w, "erro ao buscar projetos", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(projects)
 }

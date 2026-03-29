@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ============================================================
 # Railway Infrastructure Provisioning
-# RAILWAY_API_TOKEN  = Account Token (GraphQL API)
+# RAILWAY_API_TOKEN    = Account Token (GraphQL API)
 # RAILWAY_WORKSPACE_ID = Workspace ID (cmd+k > "copy workspace id")
 # ============================================================
 
@@ -60,8 +60,20 @@ set_gh_var() {
   warn "Nao foi possivel gravar $KEY"
 }
 
+# ---- Helper: Railway variable upsert ----
+set_railway_var() {
+  local SVC_ID="$1" KEY="$2" VALUE="$3"
+  jq -n \
+    --arg pid "$PROJECT_ID" --arg eid "$ENV_ID" \
+    --arg sid "$SVC_ID"     --arg name "$KEY" --arg value "$VALUE" \
+    '{"query": "mutation($pid:String!,$eid:String!,$sid:String!,$name:String!,$value:String!) { variableUpsert(input: { projectId:$pid, environmentId:$eid, serviceId:$sid, name:$name, value:$value }) }",
+     "variables": {"pid":$pid,"eid":$eid,"sid":$sid,"name":$name,"value":$value}}' > "$TMP/q.json"
+  railway_gql "$TMP/q.json" > /dev/null
+  ok "  Var $KEY setada no servico $SVC_ID"
+}
+
 # ===========================================================
-# 0. Validar token (me so retorna id/name — NAO projects)
+# 0. Validar token
 # ===========================================================
 log "Validando RAILWAY_API_TOKEN..."
 jq -n '{"query": "{ me { id name } }"}' > "$TMP/q.json"
@@ -81,7 +93,7 @@ gh api --method PUT \
 ok "GitHub Environment '$ENVIRONMENT' OK."
 
 # ===========================================================
-# 2. Buscar ou criar projeto via workspace query
+# 2. Buscar ou criar projeto Railway
 # ===========================================================
 log "Buscando projeto '$PROJECT_NAME' no workspace $RAILWAY_WORKSPACE_ID..."
 jq -n --arg wid "$RAILWAY_WORKSPACE_ID" \
@@ -106,7 +118,7 @@ else
 fi
 
 # ===========================================================
-# 3. Obter Environment ID do projeto
+# 3. Obter Environment ID
 # ===========================================================
 log "Buscando environment do projeto..."
 jq -n --arg pid "$PROJECT_ID" \
@@ -119,7 +131,7 @@ ENV_NAME=$(echo "$ENV_RESP" | jq -r '.data.project.environments.edges[0].node.na
 ok "Environment Railway: $ENV_NAME ($ENV_ID)"
 
 # ===========================================================
-# 4. Criar servicos (idempotente)
+# 4. Criar/garantir servicos (backend, frontends)
 # ===========================================================
 declare -A SERVICE_IDS
 
@@ -151,26 +163,50 @@ for SVC in "${SERVICES[@]}"; do
 done
 
 # ===========================================================
-# 5. Setar variaveis no backend
+# 5. Provisionar banco PostgreSQL no Railway
+# ===========================================================
+log "Verificando servico PostgreSQL..."
+jq -n --arg pid "$PROJECT_ID" \
+  '{"query": "query($pid: String!) { project(id: $pid) { services { edges { node { id name } } } } }",
+    "variables": {"pid": $pid}}' > "$TMP/q.json"
+SVC_RESP=$(railway_gql "$TMP/q.json")
+PG_ID=$(echo "$SVC_RESP" | jq -r '.data.project.services.edges[] | select(.node.name == "postgres") | .node.id' 2>/dev/null || echo "")
+
+if [ -z "$PG_ID" ] || [ "$PG_ID" = "null" ]; then
+  log "Provisionando PostgreSQL via plugin Railway..."
+  jq -n --arg pid "$PROJECT_ID" --arg eid "$ENV_ID" \
+    '{"query": "mutation($pid:String!,$eid:String!) { databaseAdd(input: { projectId:$pid, environmentId:$eid, type: postgresql }) { id name } }",
+     "variables": {"pid":$pid,"eid":$eid}}' > "$TMP/q.json"
+  PG_RESP=$(railway_gql "$TMP/q.json")
+  PG_ID=$(echo "$PG_RESP" | jq -r '.data.databaseAdd.id // empty')
+  [ -z "$PG_ID" ] && warn "Nao foi possivel provisionar PostgreSQL automaticamente. Crie manualmente no dashboard Railway e copie a DATABASE_URL."
+  ok "PostgreSQL provisionado: $PG_ID"
+else
+  ok "PostgreSQL ja existe: $PG_ID"
+fi
+
+# ===========================================================
+# 6. Configurar variaveis do backend
 # ===========================================================
 log "Configurando variaveis do backend..."
 
-set_railway_var() {
-  local SVC_ID="$1" KEY="$2" VALUE="$3"
-  jq -n \
-    --arg pid "$PROJECT_ID" --arg eid "$ENV_ID" \
-    --arg sid "$SVC_ID"     --arg name "$KEY" --arg value "$VALUE" \
-    '{"query": "mutation($pid:String!,$eid:String!,$sid:String!,$name:String!,$value:String!) { variableUpsert(input: { projectId:$pid, environmentId:$eid, serviceId:$sid, name:$name, value:$value }) }",
-     "variables": {"pid":$pid,"eid":$eid,"sid":$sid,"name":$name,"value":$value}}' > "$TMP/q.json"
-  railway_gql "$TMP/q.json" > /dev/null
-  ok "  Var $KEY setada."
-}
+BACKEND_SVC_ID="${SERVICE_IDS[backend]}"
 
-set_railway_var "${SERVICE_IDS[backend]}" "PORT" "8080"
-set_railway_var "${SERVICE_IDS[backend]}" "ALLOWED_ORIGINS" "https://portifolio-pt.up.railway.app"
+set_railway_var "$BACKEND_SVC_ID" "PORT" "8080"
+set_railway_var "$BACKEND_SVC_ID" "ALLOWED_ORIGINS" "https://portifolio-pt.up.railway.app"
+
+# DATABASE_URL sera injetada automaticamente pelo Railway quando o Postgres estiver linkado
+# Caso queira forcar manualmente:
+if [ -n "${DATABASE_URL_OVERRIDE:-}" ]; then
+  set_railway_var "$BACKEND_SVC_ID" "DATABASE_URL" "$DATABASE_URL_OVERRIDE"
+  ok "DATABASE_URL configurada manualmente."
+else
+  warn "DATABASE_URL sera injetada automaticamente pelo Railway apos linkar o servico Postgres ao backend."
+  warn "No dashboard Railway: Backend service > Variables > Add Reference > DATABASE_URL"
+fi
 
 # ===========================================================
-# 6. Gravar IDs como GitHub Variables
+# 7. Gravar IDs como GitHub Variables
 # ===========================================================
 log "Gravando variaveis no GitHub Environment '$ENVIRONMENT'..."
 set_gh_var "RAILWAY_WORKSPACE_ID"        "$RAILWAY_WORKSPACE_ID"
@@ -188,23 +224,25 @@ else
 fi
 
 # ===========================================================
-# 7. Resumo
+# 8. Resumo
 # ===========================================================
 echo ""
 echo "=========================================="
 ok " INFRA PROVISIONADA COM SUCESSO!"
 echo "=========================================="
-printf "  %-25s %s\n" "Autenticado:"  "$ME_NAME"
-printf "  %-25s %s\n" "Workspace:"   "$RAILWAY_WORKSPACE_ID"
-printf "  %-25s %s\n" "Projeto:"     "$PROJECT_NAME ($PROJECT_ID)"
-printf "  %-25s %s\n" "Environment:" "$ENV_NAME ($ENV_ID)"
+printf "  %-25s %s\n" "Autenticado:"   "$ME_NAME"
+printf "  %-25s %s\n" "Workspace:"    "$RAILWAY_WORKSPACE_ID"
+printf "  %-25s %s\n" "Projeto:"      "$PROJECT_NAME ($PROJECT_ID)"
+printf "  %-25s %s\n" "Environment:"  "$ENV_NAME ($ENV_ID)"
 echo ""
 for SVC in "${SERVICES[@]}"; do
   printf "  %-22s %s\n" "$SVC:" "${SERVICE_IDS[$SVC]}"
 done
+[ -n "${PG_ID:-}" ] && printf "  %-22s %s\n" "postgres:" "$PG_ID"
 echo ""
 warn "Proximos passos:"
-echo "  1. Rode: Deploy Backend -> Railway"
-echo "  2. Rode: Deploy Frontend -> Railway"
-echo "  3. Atualize BACKEND_URL com a URL real gerada pelo Railway."
+echo "  1. No dashboard Railway: linke o servico 'postgres' ao 'backend' (Variables > Add Reference > DATABASE_URL)"
+echo "  2. Rode o deploy do backend -> Railway conectara automaticamente ao banco"
+echo "  3. Deploy do frontend -> Railway"
+echo "  4. Atualize BACKEND_URL com a URL real gerada pelo Railway"
 echo ""
