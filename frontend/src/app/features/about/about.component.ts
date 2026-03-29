@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, LOCALE_ID } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { Profile } from '../../core/models/portfolio.models';
 
@@ -7,7 +7,7 @@ import { Profile } from '../../core/models/portfolio.models';
   standalone: true,
   template: `
     <section id="about" class="container">
-      <h2 i18n="@@about.title">About Me</h2>
+      <h2>Sobre Mim</h2>
       @if (profile(); as p) {
         <div class="about-grid">
           <div class="about-text">
@@ -36,22 +36,20 @@ import { Profile } from '../../core/models/portfolio.models';
 })
 export class AboutComponent implements OnInit {
   private readonly portfolioService = inject(PortfolioService);
-  private readonly localeId = inject(LOCALE_ID);
 
   profile = signal<Profile | null>(null);
   bio = signal<string>('');
 
   readonly stats = [
-    { value: '8+',  label: $localize`:@@about.stat.years:Years of Experience` },
-    { value: '15+', label: $localize`:@@about.stat.projects:Projects Delivered` },
-    { value: '3',   label: $localize`:@@about.stat.langs:Languages` },
+    { value: '8+',  label: 'Anos de Experiência' },
+    { value: '15+', label: 'Projetos Entregues' },
+    { value: '3',   label: 'Linguagens' },
   ];
 
   ngOnInit(): void {
     this.portfolioService.getProfile().subscribe((p) => {
       this.profile.set(p);
-      const lang = this.localeId.split('-')[0];
-      this.bio.set(p.bio[lang] ?? p.bio['en']);
+      this.bio.set(p.bio['pt'] ?? p.bio['en'] ?? '');
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, LOCALE_ID } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { Project } from '../../core/models/portfolio.models';
 
@@ -7,29 +7,29 @@ import { Project } from '../../core/models/portfolio.models';
   standalone: true,
   template: `
     <section id="projects" class="container">
-      <h2 i18n="@@projects.title">Projects</h2>
+      <h2>Projetos</h2>
       <div class="projects-grid">
         @for (project of projects(); track project.id) {
           <article class="project-card">
             @if (project.featured) {
-              <span class="badge" i18n="@@projects.featured">Featured</span>
+              <span class="badge">Destaque</span>
             }
             <h3>{{ project.title }}</h3>
-            <p>{{ getDescription(project) }}</p>
+            <p>{{ project.description['pt'] ?? project.description['en'] }}</p>
             <ul class="tech-list">
               @for (tech of project.tech; track tech) {
                 <li>{{ tech }}</li>
               }
             </ul>
             <div class="card-links">
-              <a [href]="project.github" target="_blank" rel="noopener" i18n="@@projects.github">GitHub →</a>
+              <a [href]="project.github" target="_blank" rel="noopener">GitHub →</a>
               @if (project.live) {
-                <a [href]="project.live" target="_blank" rel="noopener" i18n="@@projects.live">Live →</a>
+                <a [href]="project.live" target="_blank" rel="noopener">Ver site →</a>
               }
             </div>
           </article>
         } @empty {
-          <p i18n="@@projects.empty">No projects found.</p>
+          <p>Nenhum projeto encontrado.</p>
         }
       </div>
     </section>
@@ -54,16 +54,10 @@ import { Project } from '../../core/models/portfolio.models';
 })
 export class ProjectsComponent implements OnInit {
   private readonly portfolioService = inject(PortfolioService);
-  private readonly localeId = inject(LOCALE_ID);
 
   projects = signal<Project[]>([]);
 
   ngOnInit(): void {
     this.portfolioService.getProjects().subscribe((p) => this.projects.set(p));
-  }
-
-  getDescription(project: Project): string {
-    const lang = this.localeId.split('-')[0];
-    return project.description[lang] ?? project.description['en'];
   }
 }

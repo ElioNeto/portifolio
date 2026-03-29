@@ -5,19 +5,6 @@
   "projects": {
     "portifolio": {
       "projectType": "application",
-      "i18n": {
-        "sourceLocale": "pt",
-        "locales": {
-          "en": {
-            "translation": "src/i18n/messages.en.xlf",
-            "baseHref": "/en/"
-          },
-          "es": {
-            "translation": "src/i18n/messages.es.xlf",
-            "baseHref": "/es/"
-          }
-        }
-      },
       "schematics": {
         "@schematics/angular:component": {
           "standalone": true,
@@ -42,9 +29,7 @@
             "scripts": []
           },
           "configurations": {
-            "pt-production": {
-              "localize": ["pt"],
-              "baseHref": "/",
+            "production": {
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
@@ -58,61 +43,25 @@
                 { "type": "initial", "maximumWarning": "500kb", "maximumError": "1mb" }
               ]
             },
-            "en-production": {
-              "localize": ["en"],
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.production.ts"
-                }
-              ],
-              "optimization": true,
-              "outputHashing": "all",
-              "sourceMap": false
-            },
-            "es-production": {
-              "localize": ["es"],
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.production.ts"
-                }
-              ],
-              "optimization": true,
-              "outputHashing": "all",
-              "sourceMap": false
-            },
-            "pt": {
-              "localize": ["pt"]
+            "development": {
+              "optimization": false,
+              "sourceMap": true
             }
           },
-          "defaultConfiguration": "pt-production"
+          "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "pt": {
-              "buildTarget": "portifolio:build:pt"
-            },
-            "en": {
-              "buildTarget": "portifolio:build:en-production"
-            },
-            "es": {
-              "buildTarget": "portifolio:build:es-production"
-            }
+            "production": { "buildTarget": "portifolio:build:production" },
+            "development": { "buildTarget": "portifolio:build:development" }
           },
-          "defaultConfiguration": "pt"
+          "defaultConfiguration": "development"
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
             "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
-          }
-        },
-        "extract-i18n": {
-          "builder": "@angular-devkit/build-angular:extract-i18n",
-          "options": {
-            "buildTarget": "portifolio:build"
           }
         }
       }
