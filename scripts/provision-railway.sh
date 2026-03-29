@@ -13,10 +13,9 @@ log()  { echo -e "${BLUE}[INFO]${NC}  $*"; }
 ok()   { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 fail() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
-debug(){ echo -e "${YELLOW}[DEBUG]${NC} $*"; }
 
 [ -z "${RAILWAY_API_TOKEN:-}"    ] && fail "RAILWAY_API_TOKEN nao configurado."
-[ -z "${RAILWAY_WORKSPACE_ID:-}" ] && fail "RAILWAY_WORKSPACE_ID nao configurado. Abra o Railway, pressione Cmd+K e busque 'copy workspace id'."
+[ -z "${RAILWAY_WORKSPACE_ID:-}" ] && fail "RAILWAY_WORKSPACE_ID nao configurado."
 
 PROJECT_NAME="${PROJECT_NAME:-portifolio}"
 REPO="${REPO:-ElioNeto/portifolio}"
@@ -27,28 +26,44 @@ SERVICES=("backend" "frontend-pt" "frontend-en" "frontend-es")
 TMP=$(mktemp -d)
 trap 'rm -rf $TMP' EXIT
 
-# ---- Helper: Railway GraphQL ----
+# ---- Helper: Railway GraphQL (robusto) ----
 railway_gql() {
   local PAYLOAD_FILE="$1"
-  debug "Payload: $(cat $PAYLOAD_FILE)"
-  local RESP
-  RESP=$(curl -s -X POST "$RAILWAY_API" \
+  local HTTP_CODE RESP
+
+  # Captura body + HTTP status separadamente
+  HTTP_CODE=$(curl -s -o "$TMP/resp_body.txt" -w "%{http_code}" \
+    -X POST "$RAILWAY_API" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
     --data-binary "@$PAYLOAD_FILE")
-  debug "Response: $RESP"
-  local ERRORS
-  ERRORS=$(echo "$RESP" | jq -r 'if .errors then .errors | map(.message) | join(", ") else empty end' 2>/dev/null || echo "")
-  if [ -n "$ERRORS" ]; then
-    fail "GraphQL error: $ERRORS\nPayload: $(cat $PAYLOAD_FILE)\nResponse: $RESP"
+
+  RESP=$(cat "$TMP/resp_body.txt")
+
+  # Falha em qualquer HTTP nao-2xx
+  if [[ "$HTTP_CODE" != 2* ]]; then
+    fail "Railway API retornou HTTP $HTTP_CODE\nEndpoint: $RAILWAY_API\nResposta:\n$RESP"
   fi
+
+  # Verifica se e JSON valido
+  if ! echo "$RESP" | jq empty 2>/dev/null; then
+    fail "Railway API retornou resposta nao-JSON (HTTP $HTTP_CODE)\nResposta:\n$RESP"
+  fi
+
+  # Verifica erros GraphQL
+  local ERRORS
+  ERRORS=$(echo "$RESP" | jq -r 'if .errors then .errors | map(.message) | join(", ") else empty end')
+  if [ -n "$ERRORS" ]; then
+    fail "GraphQL error: $ERRORS\nPayload: $(cat $PAYLOAD_FILE)\nResposta: $RESP"
+  fi
+
   echo "$RESP"
 }
 
 # ---- Helper: GitHub Variable upsert ----
 set_gh_var() {
   local KEY="$1" VALUE="$2"
-  log "  GitHub Var: $KEY = $VALUE"
+  log "  GitHub Var: $KEY"
   gh api --method POST \
     -H "Accept: application/vnd.github+json" \
     "/repos/$REPO/environments/$ENVIRONMENT/variables" \
@@ -69,18 +84,39 @@ set_railway_var() {
     '{"query": "mutation($pid:String!,$eid:String!,$sid:String!,$name:String!,$value:String!) { variableUpsert(input: { projectId:$pid, environmentId:$eid, serviceId:$sid, name:$name, value:$value }) }",
      "variables": {"pid":$pid,"eid":$eid,"sid":$sid,"name":$name,"value":$value}}' > "$TMP/q.json"
   railway_gql "$TMP/q.json" > /dev/null
-  ok "  Var $KEY setada no servico $SVC_ID"
+  ok "  Var $KEY setada."
 }
 
 # ===========================================================
 # 0. Validar token
 # ===========================================================
-log "Validando RAILWAY_API_TOKEN... (endpoint: $RAILWAY_API)"
+log "Validando RAILWAY_API_TOKEN..."
+log "Endpoint: $RAILWAY_API"
+
 jq -n '{"query": "{ me { id name } }"}' > "$TMP/q.json"
-ME=$(railway_gql "$TMP/q.json")
-ME_NAME=$(echo "$ME" | jq -r '.data.me.name // empty')
+
+# Executa direto (sem railway_gql) para ver tudo em caso de falha
+HTTP_CODE=$(curl -s -o "$TMP/me_body.txt" -w "%{http_code}" \
+  -X POST "$RAILWAY_API" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
+  --data-binary "@$TMP/q.json")
+ME_RAW=$(cat "$TMP/me_body.txt")
+
+log "HTTP Status: $HTTP_CODE"
+log "Resposta raw: $ME_RAW"
+
+if [[ "$HTTP_CODE" != 2* ]]; then
+  fail "HTTP $HTTP_CODE. O token pode ser invalido ou a URL mudou.\nVerifique: https://railway.com/account/tokens (Account Token)"
+fi
+
+if ! echo "$ME_RAW" | jq empty 2>/dev/null; then
+  fail "Resposta nao e JSON. Possivel redirect ou pagina de erro HTML."
+fi
+
+ME_NAME=$(echo "$ME_RAW" | jq -r '.data.me.name // empty')
 if [ -z "$ME_NAME" ]; then
-  fail "Token invalido ou sem permissao.\nResposta completa: $ME\nVerifique:\n  - Token gerado em https://railway.com/account/tokens\n  - Tipo: Account Token (nao project token)\n  - Secret configurado como RAILWAY_API_TOKEN no repositorio"
+  fail "Token invalido ou sem permissao.\nErros: $(echo $ME_RAW | jq -r '.errors // "nenhum" | tostring')"
 fi
 ok "Autenticado como: $ME_NAME"
 
@@ -133,7 +169,7 @@ ENV_NAME=$(echo "$ENV_RESP" | jq -r '.data.project.environments.edges[0].node.na
 ok "Environment Railway: $ENV_NAME ($ENV_ID)"
 
 # ===========================================================
-# 4. Criar/garantir servicos (backend, frontends)
+# 4. Criar/garantir servicos
 # ===========================================================
 declare -A SERVICE_IDS
 
@@ -183,23 +219,17 @@ else
   if railway add --plugin postgresql --project "$PROJECT_ID" --environment "$ENV_ID" 2>/dev/null; then
     ok "PostgreSQL plugin adicionado com sucesso!"
   else
-    warn "Nao foi possivel adicionar PostgreSQL automaticamente via CLI."
-    warn "--------------------------------------------------------------"
-    warn "Adicione manualmente no dashboard Railway:"
-    warn "  1. Abra o projeto '$PROJECT_NAME'"
-    warn "  2. Clique em '+ New Service' -> 'Database' -> 'PostgreSQL'"
-    warn "  3. Apos criar: backend -> Variables -> Add Reference -> DATABASE_URL"
-    warn "--------------------------------------------------------------"
+    warn "Nao foi possivel adicionar PostgreSQL via CLI."
+    warn "Adicione manualmente: Railway Dashboard -> + New Service -> Database -> PostgreSQL"
+    warn "Depois: backend -> Variables -> Add Reference -> DATABASE_URL"
   fi
 fi
 
 # ===========================================================
-# 6. Configurar variaveis do backend
+# 6. Variaveis do backend
 # ===========================================================
 log "Configurando variaveis do backend..."
-
 BACKEND_SVC_ID="${SERVICE_IDS[backend]}"
-
 set_railway_var "$BACKEND_SVC_ID" "PORT" "8080"
 set_railway_var "$BACKEND_SVC_ID" "ALLOWED_ORIGINS" "https://portifolio-pt.up.railway.app"
 
@@ -207,12 +237,11 @@ if [ -n "${DATABASE_URL_OVERRIDE:-}" ]; then
   set_railway_var "$BACKEND_SVC_ID" "DATABASE_URL" "$DATABASE_URL_OVERRIDE"
   ok "DATABASE_URL configurada manualmente."
 else
-  warn "DATABASE_URL sera injetada automaticamente apos linkar o Postgres ao backend."
-  warn "No dashboard: backend -> Variables -> Add Reference -> DATABASE_URL"
+  warn "DATABASE_URL sera injetada via Add Reference no dashboard Railway."
 fi
 
 # ===========================================================
-# 7. Gravar IDs como GitHub Variables
+# 7. GitHub Variables
 # ===========================================================
 log "Gravando variaveis no GitHub Environment '$ENVIRONMENT'..."
 set_gh_var "RAILWAY_WORKSPACE_ID"        "$RAILWAY_WORKSPACE_ID"
@@ -222,12 +251,8 @@ set_gh_var "RAILWAY_BACKEND_SERVICE"     "${SERVICE_IDS[backend]}"
 set_gh_var "RAILWAY_FRONTEND_PT_SERVICE" "${SERVICE_IDS[frontend-pt]}"
 set_gh_var "RAILWAY_FRONTEND_EN_SERVICE" "${SERVICE_IDS[frontend-en]}"
 set_gh_var "RAILWAY_FRONTEND_ES_SERVICE" "${SERVICE_IDS[frontend-es]}"
-
-if [ -n "${BACKEND_URL_OVERRIDE:-}" ]; then
-  set_gh_var "BACKEND_URL" "$BACKEND_URL_OVERRIDE"
-else
+[ -n "${BACKEND_URL_OVERRIDE:-}" ] && set_gh_var "BACKEND_URL" "$BACKEND_URL_OVERRIDE" || \
   warn "BACKEND_URL_OVERRIDE nao informado. Atualize BACKEND_URL apos o primeiro deploy."
-fi
 
 # ===========================================================
 # 8. Resumo
@@ -246,11 +271,9 @@ for SVC in "${SERVICES[@]}"; do
 done
 echo ""
 warn "Proximos passos:"
-echo "  1. Se o PostgreSQL nao foi criado automaticamente:"
-echo "     Railway Dashboard -> + New Service -> Database -> PostgreSQL"
-echo "  2. Linke o Postgres ao backend:"
-echo "     backend service -> Variables -> Add Reference -> DATABASE_URL"
-echo "  3. Rode o workflow: Deploy Backend -> Railway"
-echo "  4. Rode o workflow: Deploy Frontend -> Railway"
-echo "  5. Atualize BACKEND_URL com a URL real gerada pelo Railway"
+echo "  1. Se PostgreSQL nao criado: Railway Dashboard -> + New Service -> Database -> PostgreSQL"
+echo "  2. backend -> Variables -> Add Reference -> DATABASE_URL"
+echo "  3. Deploy Backend -> Railway"
+echo "  4. Deploy Frontend -> Railway"
+echo "  5. Atualize BACKEND_URL"
 echo ""
