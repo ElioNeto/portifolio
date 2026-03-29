@@ -28,32 +28,47 @@ ENVIRONMENT="production"
 RAILWAY_API="https://backboard.railway.app/graphql/v2"
 SERVICES=("backend" "frontend-pt" "frontend-en" "frontend-es")
 
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
 # ---------------------------------------------------------------------------
-# Helper: executa query/mutation GraphQL, falha com mensagem clara
+# Helper: executa GraphQL, salva resposta em arquivo, parseia com python
+# Evita problemas de interpolacao de JSON dentro de strings bash/python.
 # ---------------------------------------------------------------------------
 gql() {
   local query="$1"
-  local response
-  response=$(curl -sf \
+  local resp_file="$TMP/resp.json"
+
+  local http_code
+  http_code=$(curl -s -o "$resp_file" -w "%{http_code}" \
     -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{\"query\": ${query}}" \
     "${RAILWAY_API}")
 
-  python3 - <<EOF
+  # HTTP nao-2xx: mostra resposta bruta e falha
+  if [[ "$http_code" != 2* ]]; then
+    echo "[error] Railway API retornou HTTP $http_code" >&2
+    echo "[debug] Resposta: $(cat $resp_file)" >&2
+    exit 1
+  fi
+
+  # Parseia com python lendo do arquivo (sem interpolacao)
+  python3 - "$resp_file" <<'PYEOF'
 import sys, json
-try:
-    data = json.loads('''${response}''')
-except Exception as e:
-    print(f"[error] Resposta nao-JSON da API Railway: {e}", file=sys.stderr)
-    print(f"[debug] Raw: ${response}", file=sys.stderr)
-    sys.exit(1)
+with open(sys.argv[1]) as f:
+    try:
+        data = json.load(f)
+    except Exception as e:
+        print(f"[error] Resposta nao-JSON: {e}", file=sys.stderr)
+        print(f"[debug] Raw: {f.read()}", file=sys.stderr)
+        sys.exit(1)
 if 'errors' in data:
     for e in data['errors']:
         print(f"[error] GraphQL: {e.get('message', e)}", file=sys.stderr)
     sys.exit(1)
 print(json.dumps(data))
-EOF
+PYEOF
 }
 
 # ---------------------------------------------------------------------------
@@ -68,7 +83,7 @@ import sys, json
 data = json.load(sys.stdin)
 edges = data.get('data',{}).get('project',{}).get('services',{}).get('edges',[])
 for e in edges:
-    if e['node']['name'] == '${name}':
+    if e['node']['name'] == '$name':
         print(e['node']['id'])
         break
 "
@@ -137,15 +152,13 @@ set_gh_var() {
 }
 
 # ===========================================================================
-# 0. Validar token
+# 0. Validar token acessando o projeto diretamente
+#    (me{} falha com team/project tokens — consultamos o projeto direto)
 # ===========================================================================
-log "Validando RAILWAY_TOKEN..."
-ME=$(gql '"{ me { id name } }"' | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data['data']['me']['name'])
-")
-log "Autenticado como: $ME"
+log "Validando acesso ao projeto ${RAILWAY_PROJECT_ID}..."
+PROJECT_NAME=$(gql "$(printf '"{ project(id: \\"%s\\") { name } }"' "${RAILWAY_PROJECT_ID}")" | \
+  python3 -c "import sys,json; print(json.load(sys.stdin)['data']['project']['name'])")
+log "Projeto: $PROJECT_NAME"
 
 # ===========================================================================
 # 1. Garantir GitHub Environment
@@ -187,15 +200,15 @@ done
 log "Configurando variaveis do backend..."
 BACKEND_ID="${SERVICE_IDS[backend]}"
 
-set_railway_var "$BACKEND_ID" "PORT"             "8080"
-set_railway_var "$BACKEND_ID" "ALLOWED_ORIGINS"  "https://portifolio-pt.up.railway.app"
+set_railway_var "$BACKEND_ID" "PORT"            "8080"
+set_railway_var "$BACKEND_ID" "ALLOWED_ORIGINS" "https://portifolio-pt.up.railway.app"
 
 if [[ -n "${DATABASE_URL_OVERRIDE:-}" ]]; then
   set_railway_var "$BACKEND_ID" "DATABASE_URL" "${DATABASE_URL_OVERRIDE}"
   log "DATABASE_URL configurada manualmente."
 else
   warn "DATABASE_URL nao configurada."
-  warn "Apos criar o PostgreSQL no Railway, configure:"
+  warn "Apos criar o PostgreSQL no Railway:"
   warn "  backend -> Variables -> Add Reference -> DATABASE_URL"
 fi
 
@@ -219,8 +232,8 @@ echo ""
 echo "==========================================="
 log " INFRA PROVISIONADA COM SUCESSO!"
 echo "==========================================="
-printf "  %-25s %s\n" "Conta Railway:"  "$ME"
-printf "  %-25s %s\n" "Project ID:"    "${RAILWAY_PROJECT_ID}"
+printf "  %-25s %s\n" "Projeto Railway:" "$PROJECT_NAME"
+printf "  %-25s %s\n" "Project ID:"     "${RAILWAY_PROJECT_ID}"
 printf "  %-25s %s\n" "Environment ID:" "${ENV_ID}"
 echo ""
 for svc in "${SERVICES[@]}"; do
