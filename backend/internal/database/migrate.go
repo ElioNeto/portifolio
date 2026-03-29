@@ -38,6 +38,29 @@ func Migrate() error {
 		level    INT NOT NULL,
 		category TEXT NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS refresh_tokens (
+		id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		token_hash TEXT NOT NULL UNIQUE,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		expires_at TIMESTAMPTZ NOT NULL,
+		revoked    BOOLEAN NOT NULL DEFAULT false
+	);
+
+	CREATE TABLE IF NOT EXISTS otp_codes (
+		id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		code_hash  TEXT NOT NULL,
+		purpose    TEXT NOT NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		expires_at TIMESTAMPTZ NOT NULL,
+		used       BOOLEAN NOT NULL DEFAULT false
+	);
+
+	CREATE TABLE IF NOT EXISTS login_attempts (
+		ip         TEXT NOT NULL,
+		attempt_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	);
+	CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts(ip, attempt_at);
 	`
 
 	_, err := Pool.Exec(context.Background(), schema)
