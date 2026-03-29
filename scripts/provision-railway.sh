@@ -21,7 +21,7 @@ debug(){ echo -e "${YELLOW}[DEBUG]${NC} $*"; }
 PROJECT_NAME="${PROJECT_NAME:-portifolio}"
 REPO="${REPO:-ElioNeto/portifolio}"
 ENVIRONMENT="production"
-RAILWAY_API="https://backboard.railway.app/graphql/v2"
+RAILWAY_API="https://backboard.railway.com/graphql/v2"
 SERVICES=("backend" "frontend-pt" "frontend-en" "frontend-es")
 
 TMP=$(mktemp -d)
@@ -75,11 +75,13 @@ set_railway_var() {
 # ===========================================================
 # 0. Validar token
 # ===========================================================
-log "Validando RAILWAY_API_TOKEN..."
+log "Validando RAILWAY_API_TOKEN... (endpoint: $RAILWAY_API)"
 jq -n '{"query": "{ me { id name } }"}' > "$TMP/q.json"
 ME=$(railway_gql "$TMP/q.json")
 ME_NAME=$(echo "$ME" | jq -r '.data.me.name // empty')
-[ -z "$ME_NAME" ] && fail "Token invalido. Resposta: $ME"
+if [ -z "$ME_NAME" ]; then
+  fail "Token invalido ou sem permissao.\nResposta completa: $ME\nVerifique:\n  - Token gerado em https://railway.com/account/tokens\n  - Tipo: Account Token (nao project token)\n  - Secret configurado como RAILWAY_API_TOKEN no repositorio"
+fi
 ok "Autenticado como: $ME_NAME"
 
 # ===========================================================
@@ -164,8 +166,6 @@ done
 
 # ===========================================================
 # 5. Provisionar PostgreSQL via Railway CLI
-#    `railway add --plugin postgresql` e o unico jeito suportado
-#    de criar o plugin nativo — a API GraphQL nao expoe isso.
 # ===========================================================
 log "Verificando plugin PostgreSQL no projeto..."
 jq -n --arg pid "$PROJECT_ID" \
@@ -178,7 +178,6 @@ if [ -n "$PG_EXISTS" ]; then
   ok "PostgreSQL ja existe no projeto: $PG_EXISTS"
 else
   log "Adicionando plugin PostgreSQL via Railway CLI..."
-  # Railway CLI usa RAILWAY_TOKEN (nao RAILWAY_API_TOKEN)
   export RAILWAY_TOKEN="$RAILWAY_API_TOKEN"
   railway link --project "$PROJECT_ID" --environment "$ENV_ID" 2>/dev/null || true
   if railway add --plugin postgresql --project "$PROJECT_ID" --environment "$ENV_ID" 2>/dev/null; then
@@ -189,8 +188,7 @@ else
     warn "Adicione manualmente no dashboard Railway:"
     warn "  1. Abra o projeto '$PROJECT_NAME'"
     warn "  2. Clique em '+ New Service' -> 'Database' -> 'PostgreSQL'"
-    warn "  3. Apos criar, va em: backend service -> Variables"
-    warn "     -> 'Add Reference' -> selecione DATABASE_URL do Postgres"
+    warn "  3. Apos criar: backend -> Variables -> Add Reference -> DATABASE_URL"
     warn "--------------------------------------------------------------"
   fi
 fi
@@ -205,8 +203,6 @@ BACKEND_SVC_ID="${SERVICE_IDS[backend]}"
 set_railway_var "$BACKEND_SVC_ID" "PORT" "8080"
 set_railway_var "$BACKEND_SVC_ID" "ALLOWED_ORIGINS" "https://portifolio-pt.up.railway.app"
 
-# DATABASE_URL e injetada automaticamente pelo Railway quando o
-# Postgres estiver linkado ao servico backend via "Add Reference"
 if [ -n "${DATABASE_URL_OVERRIDE:-}" ]; then
   set_railway_var "$BACKEND_SVC_ID" "DATABASE_URL" "$DATABASE_URL_OVERRIDE"
   ok "DATABASE_URL configurada manualmente."
@@ -250,7 +246,7 @@ for SVC in "${SERVICES[@]}"; do
 done
 echo ""
 warn "Proximos passos:"
-echo "  1. Se o PostgreSQL nao foi criado automaticamente, adicione-o manualmente:"
+echo "  1. Se o PostgreSQL nao foi criado automaticamente:"
 echo "     Railway Dashboard -> + New Service -> Database -> PostgreSQL"
 echo "  2. Linke o Postgres ao backend:"
 echo "     backend service -> Variables -> Add Reference -> DATABASE_URL"
