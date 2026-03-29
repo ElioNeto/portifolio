@@ -69,6 +69,21 @@
           },
           "defaultConfiguration": "pt-production"
         },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "configurations": {
+            "pt": {
+              "buildTarget": "portifolio:build:pt"
+            },
+            "en": {
+              "buildTarget": "portifolio:build:en-production"
+            },
+            "es": {
+              "buildTarget": "portifolio:build:es-production"
+            }
+          },
+          "defaultConfiguration": "pt"
+        },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
