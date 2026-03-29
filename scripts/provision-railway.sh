@@ -32,28 +32,26 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 # ---------------------------------------------------------------------------
-# Helper: executa GraphQL, salva resposta em arquivo, parseia com python
-# Evita problemas de interpolacao de JSON dentro de strings bash/python.
+# gql_file <payload_file>
+#   Envia arquivo JSON como payload GraphQL, retorna resposta parseada.
 # ---------------------------------------------------------------------------
-gql() {
-  local query="$1"
+gql_file() {
+  local payload_file="$1"
   local resp_file="$TMP/resp.json"
 
   local http_code
   http_code=$(curl -s -o "$resp_file" -w "%{http_code}" \
     -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"query\": ${query}}" \
+    --data-binary "@${payload_file}" \
     "${RAILWAY_API}")
 
-  # HTTP nao-2xx: mostra resposta bruta e falha
   if [[ "$http_code" != 2* ]]; then
-    echo "[error] Railway API retornou HTTP $http_code" >&2
+    echo "[error] Railway API HTTP $http_code" >&2
     echo "[debug] Resposta: $(cat $resp_file)" >&2
     exit 1
   fi
 
-  # Parseia com python lendo do arquivo (sem interpolacao)
   python3 - "$resp_file" <<'PYEOF'
 import sys, json
 with open(sys.argv[1]) as f:
@@ -61,7 +59,6 @@ with open(sys.argv[1]) as f:
         data = json.load(f)
     except Exception as e:
         print(f"[error] Resposta nao-JSON: {e}", file=sys.stderr)
-        print(f"[debug] Raw: {f.read()}", file=sys.stderr)
         sys.exit(1)
 if 'errors' in data:
     for e in data['errors']:
@@ -69,6 +66,17 @@ if 'errors' in data:
     sys.exit(1)
 print(json.dumps(data))
 PYEOF
+}
+
+# ---------------------------------------------------------------------------
+# gql <query_string>
+#   Envia query inline (sem variaveis). Evita aspas duplas aninhadas.
+# ---------------------------------------------------------------------------
+gql() {
+  local query="$1"
+  local pf="$TMP/q.json"
+  printf '{"query": %s}' "$query" > "$pf"
+  gql_file "$pf"
 }
 
 # ---------------------------------------------------------------------------
@@ -121,16 +129,27 @@ print(edges[0]['node']['id'])
 }
 
 # ---------------------------------------------------------------------------
-# Seta variavel no servico
+# Seta variavel no servico via variableUpsert (payload JSON tipado)
 # ---------------------------------------------------------------------------
 set_railway_var() {
   local svc_id="$1" key="$2" value="$3"
-  local env_id
+  local env_id pf
   env_id=$(get_env_id)
-  local mutation
-  mutation=$(printf '"mutation { variableCollectionUpsert(input: { projectId: \\"%s\\", environmentId: \\"%s\\", serviceId: \\"%s\\", variables: { \\"%s\\": \\"%s\\" } }) }"' \
-    "${RAILWAY_PROJECT_ID}" "${env_id}" "${svc_id}" "${key}" "${value}")
-  gql "$mutation" > /dev/null
+  pf="$TMP/var.json"
+
+  # Usa jq para montar o payload com seguranca (sem escape manual)
+  jq -n \
+    --arg pid  "${RAILWAY_PROJECT_ID}" \
+    --arg eid  "${env_id}" \
+    --arg sid  "${svc_id}" \
+    --arg name "${key}" \
+    --arg val  "${value}" \
+    '{
+      query: "mutation Upsert($pid:String!,$eid:String!,$sid:String!,$name:String!,$val:String!) { variableUpsert(input:{projectId:$pid,environmentId:$eid,serviceId:$sid,name:$name,value:$val}) }",
+      variables: {pid:$pid, eid:$eid, sid:$sid, name:$name, val:$val}
+    }' > "$pf"
+
+  gql_file "$pf" > /dev/null
   log "  SET ${key}"
 }
 
@@ -152,8 +171,7 @@ set_gh_var() {
 }
 
 # ===========================================================================
-# 0. Validar token acessando o projeto diretamente
-#    (me{} falha com team/project tokens — consultamos o projeto direto)
+# 0. Validar token
 # ===========================================================================
 log "Validando acesso ao projeto ${RAILWAY_PROJECT_ID}..."
 PROJECT_NAME=$(gql "$(printf '"{ project(id: \\"%s\\") { name } }"' "${RAILWAY_PROJECT_ID}")" | \
