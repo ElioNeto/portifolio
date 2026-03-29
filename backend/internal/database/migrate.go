@@ -8,24 +8,31 @@ import (
 func Migrate() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS profile (
-		id         SERIAL PRIMARY KEY,
-		name       TEXT NOT NULL,
-		role       TEXT NOT NULL,
-		location   TEXT NOT NULL,
-		email      TEXT NOT NULL,
-		github     TEXT NOT NULL,
-		blog       TEXT NOT NULL,
-		bio_pt     TEXT NOT NULL,
-		bio_en     TEXT NOT NULL,
-		bio_es     TEXT NOT NULL
+		id            SERIAL PRIMARY KEY,
+		name          TEXT NOT NULL,
+		role          TEXT NOT NULL,
+		location      TEXT NOT NULL,
+		email         TEXT NOT NULL,
+		github        TEXT NOT NULL,
+		blog          TEXT NOT NULL,
+		bio_pt        TEXT NOT NULL,
+		bio_en        TEXT NOT NULL DEFAULT '',
+		bio_es        TEXT NOT NULL DEFAULT '',
+		stat_years    TEXT NOT NULL DEFAULT '8+',
+		stat_projects TEXT NOT NULL DEFAULT '15+',
+		stat_langs    TEXT NOT NULL DEFAULT '3'
 	);
+
+	ALTER TABLE profile ADD COLUMN IF NOT EXISTS stat_years    TEXT NOT NULL DEFAULT '8+';
+	ALTER TABLE profile ADD COLUMN IF NOT EXISTS stat_projects TEXT NOT NULL DEFAULT '15+';
+	ALTER TABLE profile ADD COLUMN IF NOT EXISTS stat_langs    TEXT NOT NULL DEFAULT '3';
 
 	CREATE TABLE IF NOT EXISTS projects (
 		id          SERIAL PRIMARY KEY,
 		title       TEXT NOT NULL,
 		desc_pt     TEXT NOT NULL,
-		desc_en     TEXT NOT NULL,
-		desc_es     TEXT NOT NULL,
+		desc_en     TEXT NOT NULL DEFAULT '',
+		desc_es     TEXT NOT NULL DEFAULT '',
 		tech        TEXT[] NOT NULL,
 		github_url  TEXT NOT NULL,
 		live_url    TEXT,

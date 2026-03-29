@@ -60,8 +60,10 @@ func DeleteSkill(ctx context.Context, id int) error {
 func UpdateProfile(ctx context.Context, p model.Profile) (model.Profile, error) {
 	_, err := database.Pool.Exec(ctx,
 		`UPDATE profile SET name=$1, role=$2, location=$3, email=$4,
-		 github=$5, blog=$6, bio_pt=$7, bio_en=$8, bio_es=$9`,
+		 github=$5, blog=$6, bio_pt=$7, bio_en=$8, bio_es=$9,
+		 stat_years=$10, stat_projects=$11, stat_langs=$12`,
 		p.Name, p.Role, p.Location, p.Email,
-		p.GitHub, p.Blog, p.Bio["pt"], p.Bio["en"], p.Bio["es"])
+		p.GitHub, p.Blog, p.Bio["pt"], p.Bio["en"], p.Bio["es"],
+		p.StatYears, p.StatProjects, p.StatLangs)
 	return p, err
 }

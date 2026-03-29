@@ -9,13 +9,18 @@ import (
 
 func GetProfile() (*model.Profile, error) {
 	row := database.Pool.QueryRow(context.Background(), `
-		SELECT name, role, location, email, github, blog, bio_pt, bio_en, bio_es
+		SELECT name, role, location, email, github, blog, bio_pt, bio_en, bio_es,
+		       stat_years, stat_projects, stat_langs
 		FROM profile LIMIT 1
 	`)
 
 	var p model.Profile
 	var bioPT, bioEN, bioES string
-	err := row.Scan(&p.Name, &p.Role, &p.Location, &p.Email, &p.GitHub, &p.Blog, &bioPT, &bioEN, &bioES)
+	err := row.Scan(
+		&p.Name, &p.Role, &p.Location, &p.Email, &p.GitHub, &p.Blog,
+		&bioPT, &bioEN, &bioES,
+		&p.StatYears, &p.StatProjects, &p.StatLangs,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -11,14 +11,20 @@ import { Profile } from '../../core/models/portfolio.models';
       @if (profile(); as p) {
         <div class="about-grid">
           <div class="about-text">
-            <p>{{ bio() }}</p>
+            <p>{{ p.bio['pt'] }}</p>
             <div class="stats">
-              @for (stat of stats; track stat.label) {
-                <div class="stat">
-                  <span class="stat-value">{{ stat.value }}</span>
-                  <span class="stat-label">{{ stat.label }}</span>
-                </div>
-              }
+              <div class="stat">
+                <span class="stat-value">{{ p.stat_years }}</span>
+                <span class="stat-label">Anos de Experiência</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value">{{ p.stat_projects }}</span>
+                <span class="stat-label">Projetos Entregues</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value">{{ p.stat_langs }}</span>
+                <span class="stat-label">Linguagens</span>
+              </div>
             </div>
           </div>
         </div>
@@ -36,20 +42,9 @@ import { Profile } from '../../core/models/portfolio.models';
 })
 export class AboutComponent implements OnInit {
   private readonly portfolioService = inject(PortfolioService);
-
   profile = signal<Profile | null>(null);
-  bio = signal<string>('');
-
-  readonly stats = [
-    { value: '8+',  label: 'Anos de Experiência' },
-    { value: '15+', label: 'Projetos Entregues' },
-    { value: '3',   label: 'Linguagens' },
-  ];
 
   ngOnInit(): void {
-    this.portfolioService.getProfile().subscribe((p) => {
-      this.profile.set(p);
-      this.bio.set(p.bio['pt'] ?? p.bio['en'] ?? '');
-    });
+    this.portfolioService.getProfile().subscribe((p) => this.profile.set(p));
   }
 }
