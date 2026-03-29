@@ -22,6 +22,10 @@ on:
         description: 'URL publica do backend (opcional, preencha apos o primeiro deploy)'
         required: false
         default: ''
+      database_url_override:
+        description: 'DATABASE_URL manual (opcional, so use se nao quiser Add Reference no dashboard)'
+        required: false
+        default: ''
 
 jobs:
   provision:
@@ -31,8 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps (jq + gh)
+      - name: Install deps (jq)
         run: sudo apt-get install -y jq
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
       - name: Validate inputs
         run: |
@@ -50,21 +57,27 @@ jobs:
 
       - name: Provision Railway infra
         env:
-          RAILWAY_API_TOKEN:    ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_WORKSPACE_ID: ${{ github.event.inputs.workspace_id }}
-          GH_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
-          PROJECT_NAME:         ${{ github.event.inputs.project_name }}
-          BACKEND_URL_OVERRIDE: ${{ github.event.inputs.backend_url_override }}
-          REPO:                 ${{ github.repository }}
+          RAILWAY_API_TOKEN:      ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_WORKSPACE_ID:   ${{ github.event.inputs.workspace_id }}
+          GH_TOKEN:               ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_NAME:           ${{ github.event.inputs.project_name }}
+          BACKEND_URL_OVERRIDE:   ${{ github.event.inputs.backend_url_override }}
+          DATABASE_URL_OVERRIDE:  ${{ github.event.inputs.database_url_override }}
+          REPO:                   ${{ github.repository }}
         run: bash scripts/provision-railway.sh
 
       - name: Summary
         if: success()
         run: |
           echo "## ⚡ Railway Infra Provisionada" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "Os IDs foram gravados automaticamente no GitHub Environment 'production'." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Proximos passos:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. Rode o workflow: **Deploy Backend -> Railway**" >> $GITHUB_STEP_SUMMARY
-          echo "2. Rode o workflow: **Deploy Frontend -> Railway**" >> $GITHUB_STEP_SUMMARY
-          echo "3. Atualize a variavel \`BACKEND_URL\` com a URL real gerada pelo Railway" >> $GITHUB_STEP_SUMMARY
+          echo "### Proximos passos" >> $GITHUB_STEP_SUMMARY
+          echo "1. Se o PostgreSQL nao foi criado automaticamente:" >> $GITHUB_STEP_SUMMARY
+          echo "   - Railway Dashboard -> **+ New Service** -> **Database** -> **PostgreSQL**" >> $GITHUB_STEP_SUMMARY
+          echo "2. Linke o Postgres ao backend:" >> $GITHUB_STEP_SUMMARY
+          echo "   - backend service -> **Variables** -> **Add Reference** -> \`DATABASE_URL\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Rode: **Deploy Backend -> Railway**" >> $GITHUB_STEP_SUMMARY
+          echo "4. Rode: **Deploy Frontend -> Railway**" >> $GITHUB_STEP_SUMMARY
+          echo "5. Atualize a variavel \`BACKEND_URL\` com a URL real do backend" >> $GITHUB_STEP_SUMMARY

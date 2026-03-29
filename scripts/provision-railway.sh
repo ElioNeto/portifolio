@@ -163,26 +163,36 @@ for SVC in "${SERVICES[@]}"; do
 done
 
 # ===========================================================
-# 5. Provisionar banco PostgreSQL no Railway
+# 5. Provisionar PostgreSQL via Railway CLI
+#    `railway add --plugin postgresql` e o unico jeito suportado
+#    de criar o plugin nativo — a API GraphQL nao expoe isso.
 # ===========================================================
-log "Verificando servico PostgreSQL..."
+log "Verificando plugin PostgreSQL no projeto..."
 jq -n --arg pid "$PROJECT_ID" \
   '{"query": "query($pid: String!) { project(id: $pid) { services { edges { node { id name } } } } }",
     "variables": {"pid": $pid}}' > "$TMP/q.json"
 SVC_RESP=$(railway_gql "$TMP/q.json")
-PG_ID=$(echo "$SVC_RESP" | jq -r '.data.project.services.edges[] | select(.node.name == "postgres") | .node.id' 2>/dev/null || echo "")
+PG_EXISTS=$(echo "$SVC_RESP" | jq -r '.data.project.services.edges[] | select(.node.name | test("(?i)postgres")) | .node.id' 2>/dev/null || echo "")
 
-if [ -z "$PG_ID" ] || [ "$PG_ID" = "null" ]; then
-  log "Provisionando PostgreSQL via plugin Railway..."
-  jq -n --arg pid "$PROJECT_ID" --arg eid "$ENV_ID" \
-    '{"query": "mutation($pid:String!,$eid:String!) { databaseAdd(input: { projectId:$pid, environmentId:$eid, type: postgresql }) { id name } }",
-     "variables": {"pid":$pid,"eid":$eid}}' > "$TMP/q.json"
-  PG_RESP=$(railway_gql "$TMP/q.json")
-  PG_ID=$(echo "$PG_RESP" | jq -r '.data.databaseAdd.id // empty')
-  [ -z "$PG_ID" ] && warn "Nao foi possivel provisionar PostgreSQL automaticamente. Crie manualmente no dashboard Railway e copie a DATABASE_URL."
-  ok "PostgreSQL provisionado: $PG_ID"
+if [ -n "$PG_EXISTS" ]; then
+  ok "PostgreSQL ja existe no projeto: $PG_EXISTS"
 else
-  ok "PostgreSQL ja existe: $PG_ID"
+  log "Adicionando plugin PostgreSQL via Railway CLI..."
+  # Railway CLI usa RAILWAY_TOKEN (nao RAILWAY_API_TOKEN)
+  export RAILWAY_TOKEN="$RAILWAY_API_TOKEN"
+  railway link --project "$PROJECT_ID" --environment "$ENV_ID" 2>/dev/null || true
+  if railway add --plugin postgresql --project "$PROJECT_ID" --environment "$ENV_ID" 2>/dev/null; then
+    ok "PostgreSQL plugin adicionado com sucesso!"
+  else
+    warn "Nao foi possivel adicionar PostgreSQL automaticamente via CLI."
+    warn "--------------------------------------------------------------"
+    warn "Adicione manualmente no dashboard Railway:"
+    warn "  1. Abra o projeto '$PROJECT_NAME'"
+    warn "  2. Clique em '+ New Service' -> 'Database' -> 'PostgreSQL'"
+    warn "  3. Apos criar, va em: backend service -> Variables"
+    warn "     -> 'Add Reference' -> selecione DATABASE_URL do Postgres"
+    warn "--------------------------------------------------------------"
+  fi
 fi
 
 # ===========================================================
@@ -195,14 +205,14 @@ BACKEND_SVC_ID="${SERVICE_IDS[backend]}"
 set_railway_var "$BACKEND_SVC_ID" "PORT" "8080"
 set_railway_var "$BACKEND_SVC_ID" "ALLOWED_ORIGINS" "https://portifolio-pt.up.railway.app"
 
-# DATABASE_URL sera injetada automaticamente pelo Railway quando o Postgres estiver linkado
-# Caso queira forcar manualmente:
+# DATABASE_URL e injetada automaticamente pelo Railway quando o
+# Postgres estiver linkado ao servico backend via "Add Reference"
 if [ -n "${DATABASE_URL_OVERRIDE:-}" ]; then
   set_railway_var "$BACKEND_SVC_ID" "DATABASE_URL" "$DATABASE_URL_OVERRIDE"
   ok "DATABASE_URL configurada manualmente."
 else
-  warn "DATABASE_URL sera injetada automaticamente pelo Railway apos linkar o servico Postgres ao backend."
-  warn "No dashboard Railway: Backend service > Variables > Add Reference > DATABASE_URL"
+  warn "DATABASE_URL sera injetada automaticamente apos linkar o Postgres ao backend."
+  warn "No dashboard: backend -> Variables -> Add Reference -> DATABASE_URL"
 fi
 
 # ===========================================================
@@ -238,11 +248,13 @@ echo ""
 for SVC in "${SERVICES[@]}"; do
   printf "  %-22s %s\n" "$SVC:" "${SERVICE_IDS[$SVC]}"
 done
-[ -n "${PG_ID:-}" ] && printf "  %-22s %s\n" "postgres:" "$PG_ID"
 echo ""
 warn "Proximos passos:"
-echo "  1. No dashboard Railway: linke o servico 'postgres' ao 'backend' (Variables > Add Reference > DATABASE_URL)"
-echo "  2. Rode o deploy do backend -> Railway conectara automaticamente ao banco"
-echo "  3. Deploy do frontend -> Railway"
-echo "  4. Atualize BACKEND_URL com a URL real gerada pelo Railway"
+echo "  1. Se o PostgreSQL nao foi criado automaticamente, adicione-o manualmente:"
+echo "     Railway Dashboard -> + New Service -> Database -> PostgreSQL"
+echo "  2. Linke o Postgres ao backend:"
+echo "     backend service -> Variables -> Add Reference -> DATABASE_URL"
+echo "  3. Rode o workflow: Deploy Backend -> Railway"
+echo "  4. Rode o workflow: Deploy Frontend -> Railway"
+echo "  5. Atualize BACKEND_URL com a URL real gerada pelo Railway"
 echo ""
