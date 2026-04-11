@@ -1,0 +1,12 @@
+<div class="admin-layout">
+  <nav class="sidebar">
+    <div class="brand">Admin</div>
+    <a routerLink="projects" routerLinkActive="active">Projetos</a>
+    <a routerLink="skills" routerLinkActive="active">Skills</a>
+    <a routerLink="profile" routerLinkActive="active">Perfil</a>
+    <button class="logout" (click)="logout()">Sair</button>
+  </nav>
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>
