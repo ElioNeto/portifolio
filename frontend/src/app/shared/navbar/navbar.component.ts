@@ -21,6 +21,8 @@ export class NavbarComponent {
     { anchor: '#contact', label: 'Contacto' },
   ];
 
+  apexLink = 'https://apexstore.elioneto.dev/dashboard';
+
   @HostListener('window:scroll')
   onScroll(): void {
     this.scrolled.set(window.scrollY > 50);
