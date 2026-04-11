@@ -16,9 +16,9 @@ export class NavbarComponent {
 
   navLinks: NavLink[] = [
     { anchor: '#about', label: 'Sobre' },
-    { anchor: '#projects', label: 'Projectos' },
+    { anchor: '#projects', label: 'Projetos' },
     { anchor: '#skills', label: 'Skills' },
-    { anchor: '#contact', label: 'Contacto' },
+    { anchor: '#contact', label: 'Contato' },
   ];
 
   apexLink = 'https://apexstore.elioneto.dev/dashboard';
