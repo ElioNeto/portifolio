@@ -1,11 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-
-interface ContactForm {
-  name: string;
-  email: string;
-  message: string;
-}
+import { ContactService } from '../../core/services/contact.service';
 
 @Component({
   selector: 'app-contact',
@@ -15,11 +10,26 @@ interface ContactForm {
   styleUrls: ['./contact.component.scss']
 })
 export class ContactComponent {
+  private readonly contactService = inject(ContactService);
+
   sent = signal(false);
-  form: ContactForm = { name: '', email: '', message: '' };
+  loading = signal(false);
+  form = { name: '', email: '', message: '' };
 
   onSubmit(): void {
-    console.log('Form submitted', this.form);
-    this.sent.set(true);
+    if (!this.form.name || !this.form.email || !this.form.message) {
+      return;
+    }
+
+    this.loading.set(true);
+    this.contactService.submitForm(this.form).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.sent.set(true);
+      },
+      error: () => {
+        this.loading.set(false);
+      }
+    });
   }
 }
