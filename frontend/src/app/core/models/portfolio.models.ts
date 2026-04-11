@@ -6,6 +6,9 @@ export interface Profile {
   github: string;
   blog: string;
   bio: Record<string, string>;
+  stat_years: string;
+  stat_projects: string;
+  stat_langs: string;
 }
 
 export interface Project {

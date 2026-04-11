@@ -15,9 +15,9 @@ export class AboutComponent implements OnInit {
   bio = signal<string>('');
 
   readonly stats = [
-    { value: '8+',  label: 'Anos de Experiência' },
+    { value: '8+', label: 'Anos de Experiência' },
     { value: '15+', label: 'Projectos Entregues' },
-    { value: '3',   label: 'Linguagens' },
+    { value: '3', label: 'Linguagens' },
   ];
 
   ngOnInit(): void {

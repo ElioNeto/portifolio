@@ -26,12 +26,17 @@ import { Profile } from '../../../core/models/portfolio.models';
           <input [(ngModel)]="profile()!.github" name="github" />
           <label>Blog / LinkedIn</label>
           <input [(ngModel)]="profile()!.blog" name="blog" />
-          <label>Bio PT</label>
+          <label>Bio</label>
           <textarea [(ngModel)]="profile()!.bio['pt']" name="bio_pt" rows="4"></textarea>
-          <label>Bio EN</label>
-          <textarea [(ngModel)]="profile()!.bio['en']" name="bio_en" rows="4"></textarea>
-          <label>Bio ES</label>
-          <textarea [(ngModel)]="profile()!.bio['es']" name="bio_es" rows="4"></textarea>
+
+          <h3 style="margin-top:1rem;margin-bottom:0">Estatísticas</h3>
+          <label>Anos de Experiência</label>
+          <input [(ngModel)]="profile()!.stat_years" name="stat_years" placeholder="ex: 8+" />
+          <label>Projetos Entregues</label>
+          <input [(ngModel)]="profile()!.stat_projects" name="stat_projects" placeholder="ex: 15+" />
+          <label>Linguagens</label>
+          <input [(ngModel)]="profile()!.stat_langs" name="stat_langs" placeholder="ex: 3" />
+
           <button type="submit" class="btn-primary">Salvar</button>
           @if (saved()) { <span class="ok">✓ Salvo</span> }
         </form>
@@ -41,6 +46,7 @@ import { Profile } from '../../../core/models/portfolio.models';
   styles: [`
     .section { max-width: 640px; }
     h2 { margin-bottom: 1.5rem; }
+    h3 { color: #aaa; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
     .form { display: flex; flex-direction: column; gap: 0.5rem; }
     label { color: #aaa; font-size: 0.8rem; }
     input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%; box-sizing: border-box; }

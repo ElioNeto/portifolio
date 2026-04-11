@@ -15,10 +15,10 @@ export class NavbarComponent {
   scrolled = signal(false);
 
   navLinks: NavLink[] = [
-    { anchor: '#about',    label: 'Sobre' },
+    { anchor: '#about', label: 'Sobre' },
     { anchor: '#projects', label: 'Projectos' },
-    { anchor: '#skills',   label: 'Skills' },
-    { anchor: '#contact',  label: 'Contacto' },
+    { anchor: '#skills', label: 'Skills' },
+    { anchor: '#contact', label: 'Contacto' },
   ];
 
   @HostListener('window:scroll')
