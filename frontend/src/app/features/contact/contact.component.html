@@ -1,0 +1,45 @@
+<section id="contact" class="container">
+  <h2>Entre em Contacto</h2>
+  @if (!sent()) {
+    <form (ngSubmit)="onSubmit()" #f="ngForm" class="contact-form">
+      <div class="form-group">
+        <label for="name">Nome</label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          [(ngModel)]="form.name"
+          required
+          placeholder="O seu nome"
+        />
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          [(ngModel)]="form.email"
+          required
+          placeholder="seu@email.com"
+        />
+      </div>
+      <div class="form-group">
+        <label for="message">Mensagem</label>
+        <textarea
+          id="message"
+          name="message"
+          [(ngModel)]="form.message"
+          required
+          rows="5"
+          placeholder="Fale-me sobre o seu projecto..."
+        ></textarea>
+      </div>
+      <button type="submit" [disabled]="f.invalid">Enviar Mensagem</button>
+    </form>
+  } @else {
+    <div class="success-msg">
+      <p>Obrigado! Entrarei em contacto em breve. 🚀</p>
+    </div>
+  }
+</section>

@@ -1,0 +1,44 @@
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.skill-group {
+  h3 {
+    color: var(--color-primary);
+    margin-bottom: 1.25rem;
+    text-transform: capitalize;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+  }
+}
+
+.skill-item {
+  margin-bottom: 1rem;
+}
+
+.skill-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-size: 0.875rem;
+}
+
+.skill-level {
+  color: var(--color-text-muted);
+}
+
+.skill-bar {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.skill-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+  transition: width 1s ease;
+}

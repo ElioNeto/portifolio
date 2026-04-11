@@ -1,0 +1,10 @@
+<nav [class.scrolled]="scrolled()">
+  <div class="container nav-inner">
+    <span class="logo">EN</span>
+    <ul class="nav-links">
+      @for (link of navLinks; track link.anchor) {
+        <li><a [href]="link.anchor">{{ link.label }}</a></li>
+      }
+    </ul>
+  </div>
+</nav>

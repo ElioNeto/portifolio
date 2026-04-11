@@ -1,0 +1,16 @@
+<section id="hero" class="hero">
+  <div class="container">
+    @if (profile(); as p) {
+      <span class="badge">Disponível para projectos</span>
+      <h1>{{ p.name }}</h1>
+      <p class="role">{{ p.role }}</p>
+      <p class="location">📍 {{ p.location }}</p>
+      <div class="cta">
+        <a href="#projects">Ver Projectos</a>
+        <a href="#contact">Fale Comigo</a>
+      </div>
+    } @else {
+      <div class="skeleton-hero"></div>
+    }
+  </div>
+</section>
