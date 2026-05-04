@@ -1,18 +1,27 @@
 <section id="about" class="container">
   <h2>Sobre Mim</h2>
-  @if (profile(); as p) {
-    <div class="about-grid">
-      <div class="about-text">
-        <p>{{ bio() }}</p>
-        <div class="stats">
-          @for (stat of stats; track stat.label) {
-            <div class="stat">
-              <span class="stat-value">{{ stat.value }}</span>
-              <span class="stat-label">{{ stat.label }}</span>
-            </div>
+  <div class="about-grid">
+    <div class="about-text">
+      <p>{{ bio() }}</p>
+      <div class="stats">
+        @for (stat of stats; track stat.label) {
+          <div class="stat">
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+        }
+      </div>
+      <div class="services">
+        <h3>Serviços</h3>
+        <ul class="services-list">
+          @for (service of services; track service.label) {
+            <li class="service-item">
+              <span class="service-icon">{{ service.icon }}</span>
+              <span class="service-label">{{ service.label }}</span>
+            </li>
           }
-        </div>
+        </ul>
       </div>
     </div>
-  }
+  </div>
 </section>

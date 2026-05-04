@@ -1,5 +1,5 @@
 <section id="contact" class="container">
-  <h2>Entre em Contacto</h2>
+  <h2>Entre em Contato</h2>
   @if (!sent()) {
     <form (ngSubmit)="onSubmit()" #f="ngForm" class="contact-form">
       <div class="form-group">
@@ -32,14 +32,14 @@
           [(ngModel)]="form.message"
           required
           rows="5"
-          placeholder="Fale-me sobre o seu projecto..."
+          placeholder="Fale sobre o seu projeto..."
         ></textarea>
       </div>
       <button type="submit" [disabled]="f.invalid">Enviar Mensagem</button>
     </form>
   } @else {
     <div class="success-msg">
-      <p>Obrigado! Entrarei em contacto em breve. 🚀</p>
+      <p>Obrigado! Entrarei em contato em breve. 🚀</p>
     </div>
   }
 </section>

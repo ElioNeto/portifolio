@@ -16,6 +16,7 @@
   display: flex;
   gap: 2.5rem;
   flex-wrap: wrap;
+  margin-bottom: 2.5rem;
 }
 
 .stat {
@@ -32,4 +33,47 @@
 .stat-label {
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+.services {
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+  }
+}
+
+.services-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.service-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-surface, #1e1e2e);
+  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+}
+
+.service-icon {
+  font-size: 1.4rem;
+}
+
+.service-label {
+  font-weight: 500;
 }
