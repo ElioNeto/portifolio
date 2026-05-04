@@ -12,6 +12,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/projects", ProjectsHandler)
 	mux.HandleFunc("GET /api/skills", SkillsHandler)
 	mux.HandleFunc("GET /api/profile", ProfileHandler)
+	mux.HandleFunc("POST /api/contact", ContactHandler)
 
 	// Auth
 	mux.HandleFunc("POST /api/auth/login", LoginHandler)
