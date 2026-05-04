@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/ElioNeto/portifolio/backend/internal/database"
 	"github.com/ElioNeto/portifolio/backend/internal/handler"
