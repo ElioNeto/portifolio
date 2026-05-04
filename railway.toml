@@ -1,6 +1,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "backend/Dockerfile"
+dockerContextDir = "backend"
 
 [deploy]
 healthcheckPath = "/health"
@@ -12,10 +13,4 @@ restartPolicyMaxRetries = 3
 name = "backend"
 
 [[services]]
-name = "frontend-pt"
-
-[[services]]
-name = "frontend-en"
-
-[[services]]
-name = "frontend-es"
+name = "frontend"
