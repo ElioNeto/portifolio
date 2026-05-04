@@ -8,7 +8,7 @@
     color: var(--color-text-muted);
     font-size: 1.1rem;
     line-height: 1.8;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
   }
 }
 
@@ -16,7 +16,9 @@
   display: flex;
   gap: 2.5rem;
   flex-wrap: wrap;
-  margin-bottom: 2.5rem;
+  margin-bottom: 3.5rem;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .stat {
@@ -39,7 +41,7 @@
   h3 {
     font-size: 1.2rem;
     font-weight: 700;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     color: var(--color-text);
   }
 }
@@ -57,10 +59,10 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: var(--color-surface, #1e1e2e);
-  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 0.85rem 1.1rem;
+  padding: 1rem 1.25rem;
   font-size: 0.95rem;
   color: var(--color-text-muted);
   transition: border-color 0.2s;
